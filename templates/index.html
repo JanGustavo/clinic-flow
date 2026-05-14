@@ -6,18 +6,65 @@
     <title>Clínica - Debug Interface</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-        h2 { margin-top: 0; }
-        form { display: grid; gap: 10px; max-width: 400px; }
-        input, select, textarea { padding: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; }
+        body { font-family: sans-serif; margin: 20px; background-color: #f9f9f9; color: #333; }
+        section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h3 { margin-top: 0; color: #34495e; }
+        form { display: grid; gap: 10px; max-width: 500px; margin-bottom: 15px; }
+        .row { display: flex; gap: 10px; }
+        .row > * { flex: 1; }
+        input, select, textarea { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        button[type="submit"] { background-color: #27ae60; color: white; }
+        button[type="submit"]:hover { background-color: #219150; }
+        .btn-delete { background-color: #e74c3c; color: white; padding: 5px 10px; font-size: 12px; }
+        .btn-delete:hover { background-color: #c0392b; }
+        .btn-edit { background-color: #3498db; color: white; padding: 5px 10px; font-size: 12px; }
+        .btn-edit:hover { background-color: #2980b9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background-color: #f4f4f4; color: #666; }
+        tr:hover { background-color: #fcfcfc; }
+        .error { color: #e74c3c; font-weight: bold; margin-bottom: 10px; padding: 10px; border: 1px solid #fab1a0; background: #fff5f5; border-radius: 4px; display: none; }
+        .success { color: #27ae60; font-weight: bold; margin-bottom: 10px; padding: 10px; border: 1px solid #b2bec3; background: #f0fff4; border-radius: 4px; display: none; }
     </style>
 </head>
 <body>
     <h1>Painel de Controle (Debug)</h1>
+
+    <section id="secUsuarios">
+        <h2>Gestão de Usuários</h2>
+        <div id="msgUsuario" class="error"></div>
+        <div id="successUsuario" class="success"></div>
+        
+        <form id="formUsuario">
+            <input type="hidden" id="uId">
+            <input type="text" id="uNome" placeholder="Nome Completo" required>
+            <input type="email" id="uEmail" placeholder="E-mail" required>
+            <div class="row">
+                <input type="password" id="uSenha" placeholder="Senha (mín. 6 chars)">
+                <input type="password" id="uSenhaRepeat" placeholder="Repita a Senha">
+            </div>
+            <select id="uTipo" required>
+                <option value="">Selecione o Tipo</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="RECEPCIONISTA">RECEPCIONISTA</option>
+                <option value="MEDICO">MEDICO</option>
+                <option value="PACIENTE">PACIENTE</option>
+            </select>
+            <div class="row">
+                <button type="submit" id="uBtnSubmit">Cadastrar Usuário</button>
+                <button type="button" id="uBtnCancel" style="display:none; background:#95a5a6; color:white;">Cancelar Edição</button>
+            </div>
+        </form>
+
+        <table id="tabelaUsuarios">
+            <thead>
+                <tr><th>ID</th><th>Nome</th><th>E-mail</th><th>Tipo</th><th>Ações</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
 
     <section>
         <h2>Pacientes</h2>
@@ -45,11 +92,11 @@
     <section>
         <h2>Médicos e Exames</h2>
         <div style="display: flex; gap: 40px;">
-            <div>
+            <div style="flex: 1;">
                 <h3>Médicos</h3>
                 <ul id="listaMedicos"></ul>
             </div>
-            <div>
+            <div style="flex: 1;">
                 <h3>Catálogo de Exames</h3>
                 <ul id="listaExames"></ul>
             </div>
@@ -80,7 +127,36 @@
     </section>
 
     <script>
+        function showMsg(id, msg, isError = true) {
+            const el = document.getElementById(id);
+            el.innerText = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
         async function loadData() {
+            // Carregar Usuários
+            const resU = await fetch('/usuarios');
+            const usuarios = await resU.json();
+            const tbodyU = document.querySelector('#tabelaUsuarios tbody');
+            const selectU = document.querySelector('#cResponsavel');
+            tbodyU.innerHTML = '';
+            selectU.innerHTML = '<option value="">Selecione o Responsável</option>';
+            usuarios.forEach(u => {
+                tbodyU.innerHTML += `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.nome}</td>
+                        <td>${u.email}</td>
+                        <td>${u.tipo}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editarUsuario(${u.id}, '${u.nome}', '${u.email}', '${u.tipo}')">Editar</button>
+                            <button class="btn-delete" onclick="deletarUsuario(${u.id})">Excluir</button>
+                        </td>
+                    </tr>`;
+                selectU.innerHTML += `<option value="${u.id}">${u.nome} (${u.tipo})</option>`;
+            });
+
             // Carregar Pacientes
             const resP = await fetch('/pacientes');
             const pacientes = await resP.json();
@@ -103,15 +179,6 @@
             medicos.forEach(m => {
                 listaM.innerHTML += `<li>${m.nome} (${m.especialidade})</li>`;
                 selectM.innerHTML += `<option value="${m.id}">${m.nome}</option>`;
-            });
-
-            // Carregar Usuários (para o responsável)
-            const resU = await fetch('/usuarios');
-            const usuarios = await resU.json();
-            const selectU = document.querySelector('#cResponsavel');
-            selectU.innerHTML = '<option value="">Selecione o Responsável</option>';
-            usuarios.forEach(u => {
-                selectU.innerHTML += `<option value="${u.id}">${u.nome} (${u.tipo})</option>`;
             });
 
             // Carregar Exames
@@ -142,6 +209,71 @@
             });
         }
 
+        // --- GESTÃO DE USUÁRIOS ---
+        document.getElementById('formUsuario').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('uId').value;
+            const data = {
+                nome: document.getElementById('uNome').value,
+                email: document.getElementById('uEmail').value,
+                senha: document.getElementById('uSenha').value,
+                senha_repeat: document.getElementById('uSenhaRepeat').value,
+                tipo: document.getElementById('uTipo').value
+            };
+
+            const url = id ? `/usuarios/${id}` : '/usuarios/';
+            const method = id ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                showMsg('successUsuario', id ? "Atualizado com sucesso!" : "Criado com sucesso!", false);
+                limparFormUsuario();
+                loadData();
+            } else {
+                showMsg('msgUsuario', result.error || "Erro ao processar");
+            }
+        };
+
+        function editarUsuario(id, nome, email, tipo) {
+            document.getElementById('uId').value = id;
+            document.getElementById('uNome').value = nome;
+            document.getElementById('uEmail').value = email;
+            document.getElementById('uTipo').value = tipo;
+            document.getElementById('uSenha').placeholder = "Nova senha (opcional)";
+            document.getElementById('uBtnSubmit').innerText = "Salvar Alterações";
+            document.getElementById('uBtnCancel').style.display = 'inline-block';
+            window.scrollTo(0, 0);
+        }
+
+        document.getElementById('uBtnCancel').onclick = limparFormUsuario;
+
+        function limparFormUsuario() {
+            document.getElementById('formUsuario').reset();
+            document.getElementById('uId').value = '';
+            document.getElementById('uBtnSubmit').innerText = "Cadastrar Usuário";
+            document.getElementById('uBtnCancel').style.display = 'none';
+            document.getElementById('uSenha').placeholder = "Senha (mín. 6 chars)";
+        }
+
+        async function deletarUsuario(id) {
+            if (!confirm("Tem certeza que deseja excluir este usuário?")) return;
+            const res = await fetch(`/usuarios/${id}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (res.ok) {
+                showMsg('successUsuario', "Usuário removido!", false);
+                loadData();
+            } else {
+                showMsg('msgUsuario', result.error);
+            }
+        }
+
+        // --- GESTÃO DE PACIENTES ---
         document.getElementById('formPaciente').onsubmit = async (e) => {
             e.preventDefault();
             const data = {
@@ -165,6 +297,7 @@
             e.target.reset();
         };
 
+        // --- GESTÃO DE CONSULTAS ---
         document.getElementById('formConsulta').onsubmit = async (e) => {
             e.preventDefault();
             const data = {

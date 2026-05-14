@@ -1,4 +1,5 @@
 from flask import Flask, render_template
+from flask_bcrypt import Bcrypt
 from routes.usuario_routes import usuario_bp
 from routes.paciente_routes import paciente_bp
 from routes.medico_routes import medico_bp
@@ -6,6 +7,8 @@ from routes.consulta_routes import consulta_bp
 from routes.exame_routes import exame_bp
 
 app = Flask(__name__)
+bcrypt = Bcrypt(app)
+
 
 # Registrar Blueprints
 app.register_blueprint(usuario_bp)
