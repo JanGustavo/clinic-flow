@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clínica - Debug Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        h2 { margin-top: 0; }
+        form { display: grid; gap: 10px; max-width: 400px; }
+        input, select, textarea { padding: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+    </style>
+</head>
+<body>
+    <h1>Painel de Controle (Debug)</h1>
+
+    <section>
+        <h2>Pacientes</h2>
+        <form id="formPaciente">
+            <input type="text" id="pNome" placeholder="Nome Completo" required>
+            <input type="date" id="pDataNasc" required>
+            <input type="text" id="pCPF" placeholder="CPF (11 dígitos)" required>
+            <input type="text" id="pTel" placeholder="Telefone">
+            <input type="text" id="pCEP" placeholder="CEP" required>
+            <input type="text" id="pLogradouro" placeholder="Logradouro" required>
+            <input type="text" id="pNum" placeholder="Número" required>
+            <input type="text" id="pBairro" placeholder="Bairro" required>
+            <input type="text" id="pCidade" placeholder="Cidade" required>
+            <input type="text" id="pEstado" placeholder="UF" required maxlength="2">
+            <button type="submit">Cadastrar Paciente</button>
+        </form>
+        <table id="tabelaPacientes">
+            <thead>
+                <tr><th>ID</th><th>Nome</th><th>CPF</th><th>Cidade</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>Médicos e Exames</h2>
+        <div style="display: flex; gap: 40px;">
+            <div>
+                <h3>Médicos</h3>
+                <ul id="listaMedicos"></ul>
+            </div>
+            <div>
+                <h3>Catálogo de Exames</h3>
+                <ul id="listaExames"></ul>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Agendar Consulta</h2>
+        <form id="formConsulta">
+            <select id="cPaciente" required><option value="">Selecione o Paciente</option></select>
+            <select id="cMedico" required><option value="">Selecione o Médico</option></select>
+            <select id="cResponsavel" required><option value="">Selecione o Responsável (Usuário)</option></select>
+            <input type="datetime-local" id="cDataHora" required>
+            <input type="text" id="cMotivo" placeholder="Motivo">
+            <input type="number" id="cValor" placeholder="Valor" step="0.01" required>
+            <button type="submit">Agendar</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Consultas Realizadas</h2>
+        <table id="tabelaConsultas">
+            <thead>
+                <tr><th>ID</th><th>Paciente</th><th>Médico</th><th>Data/Hora</th><th>Ações</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <script>
+        async function loadData() {
+            // Carregar Pacientes
+            const resP = await fetch('/pacientes');
+            const pacientes = await resP.json();
+            const tbodyP = document.querySelector('#tabelaPacientes tbody');
+            const selectP = document.querySelector('#cPaciente');
+            tbodyP.innerHTML = '';
+            selectP.innerHTML = '<option value="">Selecione o Paciente</option>';
+            pacientes.forEach(p => {
+                tbodyP.innerHTML += `<tr><td>${p.id}</td><td>${p.nome}</td><td>${p.cpf}</td><td>${p.cidade}</td></tr>`;
+                selectP.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+            });
+
+            // Carregar Médicos
+            const resM = await fetch('/medicos');
+            const medicos = await resM.json();
+            const listaM = document.querySelector('#listaMedicos');
+            const selectM = document.querySelector('#cMedico');
+            listaM.innerHTML = '';
+            selectM.innerHTML = '<option value="">Selecione o Médico</option>';
+            medicos.forEach(m => {
+                listaM.innerHTML += `<li>${m.nome} (${m.especialidade})</li>`;
+                selectM.innerHTML += `<option value="${m.id}">${m.nome}</option>`;
+            });
+
+            // Carregar Usuários (para o responsável)
+            const resU = await fetch('/usuarios');
+            const usuarios = await resU.json();
+            const selectU = document.querySelector('#cResponsavel');
+            selectU.innerHTML = '<option value="">Selecione o Responsável</option>';
+            usuarios.forEach(u => {
+                selectU.innerHTML += `<option value="${u.id}">${u.nome} (${u.tipo})</option>`;
+            });
+
+            // Carregar Exames
+            const resE = await fetch('/exames');
+            const exames = await resE.json();
+            const listaE = document.querySelector('#listaExames');
+            listaE.innerHTML = '';
+            exames.forEach(e => {
+                listaE.innerHTML += `<li>${e.nome} - R$ ${e.valor}</li>`;
+            });
+
+            // Carregar Consultas
+            const resC = await fetch('/consultas');
+            const consultas = await resC.json();
+            const tbodyC = document.querySelector('#tabelaConsultas tbody');
+            tbodyC.innerHTML = '';
+            consultas.forEach(c => {
+                tbodyC.innerHTML += `
+                    <tr>
+                        <td>${c.id}</td>
+                        <td>${c.paciente_nome}</td>
+                        <td>${c.medico_nome}</td>
+                        <td>${new Date(c.data_hora).toLocaleString()}</td>
+                        <td>
+                            <button onclick="solicitarExame(${c.id})">Solicitar Exame</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        document.getElementById('formPaciente').onsubmit = async (e) => {
+            e.preventDefault();
+            const data = {
+                nome: document.getElementById('pNome').value,
+                data_nascimento: document.getElementById('pDataNasc').value,
+                cpf: document.getElementById('pCPF').value,
+                telefone: document.getElementById('pTel').value,
+                cep: document.getElementById('pCEP').value,
+                logradouro: document.getElementById('pLogradouro').value,
+                numero_casa: document.getElementById('pNum').value,
+                bairro: document.getElementById('pBairro').value,
+                cidade: document.getElementById('pCidade').value,
+                estado: document.getElementById('pEstado').value
+            };
+            await fetch('/pacientes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            loadData();
+            e.target.reset();
+        };
+
+        document.getElementById('formConsulta').onsubmit = async (e) => {
+            e.preventDefault();
+            const data = {
+                id_paciente: document.getElementById('cPaciente').value,
+                id_medico: document.getElementById('cMedico').value,
+                id_usuario_responsavel: document.getElementById('cResponsavel').value,
+                data_hora: document.getElementById('cDataHora').value,
+                motivo: document.getElementById('cMotivo').value,
+                valor: document.getElementById('cValor').value
+            };
+            await fetch('/consultas', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            loadData();
+            e.target.reset();
+        };
+
+        async function solicitarExame(idConsulta) {
+            const idExame = prompt("Digite o ID do exame do catálogo:");
+            if (!idExame) return;
+            await fetch(`/consultas/${idConsulta}/exames`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id_exame: idExame})
+            });
+            alert("Exame solicitado!");
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
