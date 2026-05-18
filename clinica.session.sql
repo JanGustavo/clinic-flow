@@ -3,9 +3,11 @@ DROP TABLE IF EXISTS CONSULTA_EXAME;
 DROP TABLE IF EXISTS EXAME;
 DROP TABLE IF EXISTS CONSULTA;
 DROP TABLE IF EXISTS MEDICO;
+DROP TABLE IF EXISTS DISPONIBILIDADE_MEDICO;
 DROP TABLE IF EXISTS PACIENTE;
 DROP TABLE IF EXISTS ESPECIALIDADE;
 DROP TABLE IF EXISTS USUARIO;
+
 -- 1. USUARIO: Quem usa o sistema (Autenticação)
 CREATE TABLE USUARIO (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -20,19 +22,37 @@ CREATE TABLE ESPECIALIDADE (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE
 );
--- 2. MEDICO: Profissional que atende (Pode ter login associado)
+-- 2. MEDICO (Atualizado: sem a coluna 'plantao')
 CREATE TABLE MEDICO (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario INT NULL UNIQUE,
-    -- Permitir NULL caso o médico não acesse o sistema
     nome VARCHAR(100) NOT NULL,
     id_especialidade INT NOT NULL,
     crm VARCHAR(20) NOT NULL UNIQUE,
     salario DECIMAL(10, 2) NOT NULL CHECK (salario >= 0),
-    plantao BOOLEAN NOT NULL DEFAULT FALSE,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+-- 2.1 DISPONIBILIDADE_MEDICO (Nova tabela de escala)
+CREATE TABLE DISPONIBILIDADE_MEDICO (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_medico INT NOT NULL,
+    dia_semana ENUM(
+        'SEGUNDA',
+        'TERCA',
+        'QUARTA',
+        'QUINTA',
+        'SEXTA',
+        'SABADO',
+        'DOMINGO'
+    ) NOT NULL,
+    turno ENUM('MANHA', 'TARDE', 'NOITE') NOT NULL,
+    -- Garante que não teremos o mesmo turno repetido no mesmo dia para o mesmo médico
+    CONSTRAINT uk_medico_dia_turno UNIQUE (id_medico, dia_semana, turno)
+);
+-- Adicionando a Foreign Key com nomeclatura padronizada
+ALTER TABLE DISPONIBILIDADE_MEDICO
+ADD CONSTRAINT fk_disponibilidade_medico FOREIGN KEY (id_medico) REFERENCES MEDICO(id) ON DELETE CASCADE;
 -- 3. PACIENTE: Pessoa atendida (Apenas existe, sem login obrigatório)
 CREATE TABLE PACIENTE (
     id INT AUTO_INCREMENT PRIMARY KEY,
