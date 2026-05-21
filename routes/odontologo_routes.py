@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import get_db_connection
 
-medico_bp = Blueprint('medico', __name__)
+odontologo_bp = Blueprint('odontologo', __name__)
 
 # --- CONSTANTES ---
 
@@ -24,14 +24,14 @@ TURNOS_VALIDOS = {
 
 # --- FUNÇÕES AUXILIARES DE BANCO ---
 
-def crm_existe(crm, id_excluido=None):
-    """Verifica se o CRM já existe."""
+def cro_existe(cro, id_excluido=None):
+    """Verifica se o CRO já existe."""
     db = get_db_connection()
 
     try:
         with db.cursor() as cursor:
-            sql = "SELECT id FROM MEDICO WHERE crm = %s"
-            params = [crm]
+            sql = "SELECT id FROM ODONTOLOGO WHERE cro = %s"
+            params = [cro]
 
             if id_excluido is not None:
                 sql += " AND id <> %s"
@@ -92,19 +92,19 @@ def verificar_nome(nome):
         or len(nome) < 3
         or len(nome) > 100
     ):
-        return "Nome do médico inválido"
+        return "Nome do odontólogo inválido"
 
     return True
 
 
-def verificar_crm(crm):
+def verificar_cro(cro):
     if (
-        not crm
-        or crm.isspace()
-        or len(crm) < 4
-        or len(crm) > 20
+        not cro
+        or cro.isspace()
+        or len(cro) < 4
+        or len(cro) > 20
     ):
-        return "CRM inválido"
+        return "CRO inválido"
 
     return True
 
@@ -132,10 +132,10 @@ def verificar_especialidade(id_especialidade):
     return True
 
 
-def validar_medico(nome, crm, salario, id_especialidade):
+def validar_odontologo(nome, cro, salario, id_especialidade):
     validacoes = [
         verificar_nome(nome),
-        verificar_crm(crm),
+        verificar_cro(cro),
         verificar_salario(salario),
         verificar_especialidade(id_especialidade)
     ]
@@ -149,9 +149,9 @@ def validar_medico(nome, crm, salario, id_especialidade):
 
 # --- ROTAS ---
 
-@medico_bp.route('/medicos', methods=['GET'])
-def list_medicos():
-    """Lista todos os médicos."""
+@odontologo_bp.route('/odontologos', methods=['GET'])
+def list_odontologos():
+    """Lista todos os odontólogos."""
 
     db = get_db_connection()
 
@@ -159,15 +159,15 @@ def list_medicos():
         with db.cursor() as cursor:
             cursor.execute("""
                 SELECT
-                    m.id,
-                    m.nome,
+                    o.id,
+                    o.nome,
                     e.nome AS especialidade,
-                    m.crm,
-                    m.salario
-                FROM MEDICO m
+                    o.cro,
+                    o.salario
+                FROM ODONTOLOGO o
                 INNER JOIN ESPECIALIDADE e
-                    ON m.id_especialidade = e.id
-                ORDER BY e.nome, m.nome
+                    ON o.id_especialidade = e.id
+                ORDER BY e.nome, o.nome
             """)
 
             return jsonify(cursor.fetchall()), 200
@@ -176,9 +176,9 @@ def list_medicos():
         db.close()
 
 
-@medico_bp.route('/medicos/<int:id>', methods=['GET'])
-def get_medico(id):
-    """Obtém um médico específico."""
+@odontologo_bp.route('/odontologos/<int:id>', methods=['GET'])
+def get_odontologo(id):
+    """Obtém um odontólogo específico."""
 
     db = get_db_connection()
 
@@ -186,33 +186,33 @@ def get_medico(id):
         with db.cursor() as cursor:
             cursor.execute("""
                 SELECT
-                    m.id,
-                    m.nome,
+                    o.id,
+                    o.nome,
                     e.nome AS especialidade,
-                    m.crm,
-                    m.salario
-                FROM MEDICO m
+                    o.cro,
+                    o.salario
+                FROM ODONTOLOGO o
                 INNER JOIN ESPECIALIDADE e
-                    ON m.id_especialidade = e.id
-                WHERE m.id = %s
+                    ON o.id_especialidade = e.id
+                WHERE o.id = %s
             """, (id,))
 
-            medico = cursor.fetchone()
+            odontologo = cursor.fetchone()
 
-            if not medico:
+            if not odontologo:
                 return jsonify({
-                    "error": "Médico não encontrado!"
+                    "error": "Odontólogo não encontrado!"
                 }), 404
 
-            return jsonify(medico), 200
+            return jsonify(odontologo), 200
 
     finally:
         db.close()
 
 
-@medico_bp.route('/medicos', methods=['POST'])
-def create_medico():
-    """Cria um médico."""
+@odontologo_bp.route('/odontologos', methods=['POST'])
+def create_odontologo():
+    """Cria um odontólogo."""
 
     db = get_db_connection()
 
@@ -221,18 +221,18 @@ def create_medico():
 
         if not dados:
             return jsonify({
-                "error": "Dados do médico ausentes!"
+                "error": "Dados do odontólogo ausentes!"
             }), 400
 
         nome = dados.get('nome')
-        crm = dados.get('crm')
+        cro = dados.get('cro')
         salario = dados.get('salario')
         id_especialidade = dados.get('id_especialidade')
         id_usuario = dados.get('id_usuario')
 
-        validacao = validar_medico(
+        validacao = validar_odontologo(
             nome,
-            crm,
+            cro,
             salario,
             id_especialidade
         )
@@ -242,18 +242,18 @@ def create_medico():
                 "error": validacao
             }), 400
 
-        if crm_existe(crm):
+        if cro_existe(cro):
             return jsonify({
-                "error": "CRM já cadastrado"
+                "error": "CRO já cadastrado"
             }), 409
 
         with db.cursor() as cursor:
             cursor.execute("""
-                INSERT INTO MEDICO (
+                INSERT INTO ODONTOLOGO (
                     id_usuario,
                     nome,
                     id_especialidade,
-                    crm,
+                    cro,
                     salario
                 )
                 VALUES (%s, %s, %s, %s, %s)
@@ -261,23 +261,23 @@ def create_medico():
                 id_usuario,
                 nome,
                 id_especialidade,
-                crm,
+                cro,
                 salario
             ))
 
             db.commit()
 
             return jsonify({
-                "message": "Médico criado com sucesso!"
+                "message": "Odontólogo criado com sucesso!"
             }), 201
 
     finally:
         db.close()
 
 
-@medico_bp.route('/medicos/<int:id>', methods=['PUT'])
-def update_medico(id):
-    """Atualiza médico."""
+@odontologo_bp.route('/odontologos/<int:id>', methods=['PUT'])
+def update_odontologo(id):
+    """Atualiza odontólogo."""
 
     db = get_db_connection()
 
@@ -285,31 +285,31 @@ def update_medico(id):
         with db.cursor() as cursor:
 
             cursor.execute(
-                "SELECT id FROM MEDICO WHERE id = %s",
+                "SELECT id FROM ODONTOLOGO WHERE id = %s",
                 (id,)
             )
 
             if not cursor.fetchone():
                 return jsonify({
-                    "error": "Médico não encontrado!"
+                    "error": "Odontólogo não encontrado!"
                 }), 404
 
             dados = request.get_json()
 
             if not dados:
                 return jsonify({
-                    "error": "Dados do médico ausentes!"
+                    "error": "Dados do odontólogo ausentes!"
                 }), 400
 
             nome = dados.get('nome')
-            crm = dados.get('crm')
+            cro = dados.get('cro')
             salario = dados.get('salario')
             id_especialidade = dados.get('id_especialidade')
             id_usuario = dados.get('id_usuario')
 
-            validacao = validar_medico(
+            validacao = validar_odontologo(
                 nome,
-                crm,
+                cro,
                 salario,
                 id_especialidade
             )
@@ -319,23 +319,23 @@ def update_medico(id):
                     "error": validacao
                 }), 400
 
-            if crm_existe(crm, id):
+            if cro_existe(cro, id):
                 return jsonify({
-                    "error": "CRM já cadastrado por outro médico"
+                    "error": "CRO já cadastrado por outro odontólogo"
                 }), 409
 
             cursor.execute("""
-                UPDATE MEDICO
+                UPDATE ODONTOLOGO
                 SET
                     nome = %s,
-                    crm = %s,
+                    cro = %s,
                     salario = %s,
                     id_especialidade = %s,
                     id_usuario = %s
                 WHERE id = %s
             """, (
                 nome,
-                crm,
+                cro,
                 salario,
                 id_especialidade,
                 id_usuario,
@@ -345,16 +345,16 @@ def update_medico(id):
             db.commit()
 
             return jsonify({
-                "message": f"Médico {id} atualizado com sucesso!"
+                "message": f"Odontólogo {id} atualizado com sucesso!"
             }), 200
 
     finally:
         db.close()
 
 
-@medico_bp.route('/medicos/<int:id>', methods=['DELETE'])
-def delete_medico(id):
-    """Exclui médico."""
+@odontologo_bp.route('/odontologos/<int:id>', methods=['DELETE'])
+def delete_odontologo(id):
+    """Exclui odontólogo."""
 
     db = get_db_connection()
 
@@ -362,36 +362,36 @@ def delete_medico(id):
         with db.cursor() as cursor:
 
             cursor.execute(
-                "SELECT id FROM MEDICO WHERE id = %s",
+                "SELECT id FROM ODONTOLOGO WHERE id = %s",
                 (id,)
             )
 
             if not cursor.fetchone():
                 return jsonify({
-                    "error": "Médico não encontrado!"
+                    "error": "Odontólogo não encontrado!"
                 }), 404
 
             cursor.execute(
-                "DELETE FROM MEDICO WHERE id = %s",
+                "DELETE FROM ODONTOLOGO WHERE id = %s",
                 (id,)
             )
 
             db.commit()
 
             return jsonify({
-                "message": f"Médico {id} excluído com sucesso!"
+                "message": f"Odontólogo {id} excluído com sucesso!"
             }), 200
 
     finally:
         db.close()
 
 
-@medico_bp.route(
-    '/medicos/disponiveis/<dia_semana>/<turno>',
+@odontologo_bp.route(
+    '/odontologos/disponiveis/<dia_semana>/<turno>',
     methods=['GET']
 )
-def list_medicos_disponiveis(dia_semana, turno):
-    """Lista médicos disponíveis por dia/turno."""
+def list_odontologos_disponiveis(dia_semana, turno):
+    """Lista odontólogos disponíveis por dia/turno."""
 
     dia_semana = dia_semana.upper()
     turno = turno.upper()
@@ -430,17 +430,17 @@ def list_medicos_disponiveis(dia_semana, turno):
 
             sql = """
                 SELECT
-                    m.id,
-                    m.nome AS medico,
+                    o.id,
+                    o.nome AS odontologo,
                     e.nome AS especialidade
-                FROM MEDICO m
+                FROM ODONTOLOGO o
                 INNER JOIN ESPECIALIDADE e
-                    ON m.id_especialidade = e.id
-                INNER JOIN DISPONIBILIDADE_MEDICO dm
-                    ON m.id = dm.id_medico
+                    ON o.id_especialidade = e.id
+                INNER JOIN DISPONIBILIDADE_ODONTOLOGO do
+                    ON o.id = do.id_odontologo
                 WHERE
-                    dm.dia_semana = %s
-                    AND dm.turno = %s
+                    do.dia_semana = %s
+                    AND do.turno = %s
             """
 
             params = [
@@ -460,7 +460,7 @@ def list_medicos_disponiveis(dia_semana, turno):
             sql += """
                 ORDER BY
                     e.nome,
-                    m.nome
+                    o.nome
             """
 
             cursor.execute(
@@ -468,16 +468,16 @@ def list_medicos_disponiveis(dia_semana, turno):
                 tuple(params)
             )
 
-            medicos = cursor.fetchall()
+            odontologos = cursor.fetchall()
 
-            if not medicos:
+            if not odontologos:
                 return jsonify({
                     "message":
-                    "Nenhum médico disponível encontrado."
+                    "Nenhum odontólogo disponível encontrado."
                 }), 404
 
             return jsonify(
-                medicos
+                odontologos
             ), 200
 
     finally:

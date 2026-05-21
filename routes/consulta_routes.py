@@ -27,7 +27,7 @@ def entidade_existe(tabela, id):
         db.close()
 
 
-def exame_ja_vinculado(id_consulta, id_exame):
+def procedimento_ja_vinculado(id_consulta, id_procedimento):
     db = get_db_connection()
 
     try:
@@ -35,11 +35,11 @@ def exame_ja_vinculado(id_consulta, id_exame):
             cursor.execute(
                 """
                 SELECT id_consulta
-                FROM CONSULTA_EXAME
+                FROM CONSULTA_PROCEDIMENTO
                 WHERE id_consulta = %s
-                AND id_exame = %s
+                AND id_procedimento = %s
                 """,
-                (id_consulta, id_exame)
+                (id_consulta, id_procedimento)
             )
 
             return cursor.fetchone() is not None
@@ -49,7 +49,7 @@ def exame_ja_vinculado(id_consulta, id_exame):
 
 def validar_consulta(
     id_paciente,
-    id_medico,
+    id_odontologo,
     id_usuario_responsavel,
     data_hora,
     motivo,
@@ -59,8 +59,8 @@ def validar_consulta(
     if not id_paciente:
         return "Paciente inválido"
 
-    if not id_medico:
-        return "Médico inválido"
+    if not id_odontologo:
+        return "Odontólogo inválido"
 
     if not id_usuario_responsavel:
         return "Usuário responsável inválido"
@@ -98,13 +98,13 @@ def list_consultas():
                     c.valor,
                     c.prioridade,
                     p.nome AS paciente,
-                    m.nome AS medico,
+                    o.nome AS odontologo,
                     u.nome AS usuario_responsavel
                 FROM CONSULTA c
                 INNER JOIN PACIENTE p
                     ON c.id_paciente = p.id
-                INNER JOIN MEDICO m
-                    ON c.id_medico = m.id
+                INNER JOIN ODONTOLOGO o
+                    ON c.id_odontologo = o.id
                 INNER JOIN USUARIO u
                     ON c.id_usuario_responsavel = u.id
                 ORDER BY c.data_hora DESC
@@ -130,13 +130,13 @@ def get_consulta(id):
                     c.valor,
                     c.prioridade,
                     p.nome AS paciente,
-                    m.nome AS medico,
+                    o.nome AS odontologo,
                     u.nome AS usuario_responsavel
                 FROM CONSULTA c
                 INNER JOIN PACIENTE p
                     ON c.id_paciente = p.id
-                INNER JOIN MEDICO m
-                    ON c.id_medico = m.id
+                INNER JOIN ODONTOLOGO o
+                    ON c.id_odontologo = o.id
                 INNER JOIN USUARIO u
                     ON c.id_usuario_responsavel = u.id
                 WHERE c.id = %s
@@ -168,7 +168,7 @@ def create_consulta():
             }), 400
 
         id_paciente = dados.get('id_paciente')
-        id_medico = dados.get('id_medico')
+        id_odontologo = dados.get('id_odontologo')
         id_usuario = dados.get('id_usuario_responsavel')
         data_hora = dados.get('data_hora')
         motivo = dados.get('motivo')
@@ -178,7 +178,7 @@ def create_consulta():
         # Validação de formato
         validacao = validar_consulta(
             id_paciente,
-            id_medico,
+            id_odontologo,
             id_usuario,
             data_hora,
             motivo,
@@ -197,9 +197,9 @@ def create_consulta():
                 "error": "Paciente não encontrado"
             }), 404
 
-        if not entidade_existe("MEDICO", id_medico):
+        if not entidade_existe("ODONTOLOGO", id_odontologo):
             return jsonify({
-                "error": "Médico não encontrado"
+                "error": "Odontólogo não encontrado"
             }), 404
 
         if not entidade_existe("USUARIO", id_usuario):
@@ -211,7 +211,7 @@ def create_consulta():
             cursor.execute("""
                 INSERT INTO CONSULTA (
                     id_paciente,
-                    id_medico,
+                    id_odontologo,
                     id_usuario_responsavel,
                     data_hora,
                     motivo,
@@ -221,7 +221,7 @@ def create_consulta():
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 id_paciente,
-                id_medico,
+                id_odontologo,
                 id_usuario,
                 data_hora,
                 motivo,
@@ -258,7 +258,7 @@ def update_consulta(id):
             }), 400
 
         id_paciente = dados.get('id_paciente')
-        id_medico = dados.get('id_medico')
+        id_odontologo = dados.get('id_odontologo')
         id_usuario = dados.get('id_usuario_responsavel')
         data_hora = dados.get('data_hora')
         motivo = dados.get('motivo')
@@ -267,7 +267,7 @@ def update_consulta(id):
 
         validacao = validar_consulta(
             id_paciente,
-            id_medico,
+            id_odontologo,
             id_usuario,
             data_hora,
             motivo,
@@ -285,7 +285,7 @@ def update_consulta(id):
                 UPDATE CONSULTA
                 SET
                     id_paciente = %s,
-                    id_medico = %s,
+                    id_odontologo = %s,
                     id_usuario_responsavel = %s,
                     data_hora = %s,
                     motivo = %s,
@@ -294,7 +294,7 @@ def update_consulta(id):
                 WHERE id = %s
             """, (
                 id_paciente,
-                id_medico,
+                id_odontologo,
                 id_usuario,
                 data_hora,
                 motivo,
@@ -346,11 +346,11 @@ def delete_consulta(id):
 
 
 # ==========================================================
-# EXAMES DA CONSULTA
+# PROCEDIMENTOS DA CONSULTA
 # ==========================================================
 
-@consulta_bp.route('/consultas/<int:id_consulta>/exames', methods=['GET'])
-def list_exames_consulta(id_consulta):
+@consulta_bp.route('/consultas/<int:id_consulta>/procedimentos', methods=['GET'])
+def list_procedimentos_consulta(id_consulta):
 
     if not entidade_existe("CONSULTA", id_consulta):
         return jsonify({
@@ -363,13 +363,13 @@ def list_exames_consulta(id_consulta):
         with db.cursor() as cursor:
             cursor.execute("""
                 SELECT
-                    e.id,
-                    e.nome,
-                    e.valor
-                FROM CONSULTA_EXAME ce
-                INNER JOIN EXAME e
-                    ON ce.id_exame = e.id
-                WHERE ce.id_consulta = %s
+                    p.id,
+                    p.nome,
+                    p.valor
+                FROM CONSULTA_PROCEDIMENTO cp
+                INNER JOIN PROCEDIMENTO p
+                    ON cp.id_procedimento = p.id
+                WHERE cp.id_consulta = %s
             """, (id_consulta,))
 
             return jsonify(cursor.fetchall()), 200
@@ -378,8 +378,8 @@ def list_exames_consulta(id_consulta):
         db.close()
 
 
-@consulta_bp.route('/consultas/<int:id_consulta>/exames', methods=['POST'])
-def add_exame_consulta(id_consulta):
+@consulta_bp.route('/consultas/<int:id_consulta>/procedimentos', methods=['POST'])
+def add_procedimento_consulta(id_consulta):
 
     if not entidade_existe("CONSULTA", id_consulta):
         return jsonify({
@@ -393,21 +393,21 @@ def add_exame_consulta(id_consulta):
             "error": "Dados ausentes"
         }), 400
 
-    id_exame = dados.get('id_exame')
+    id_procedimento = dados.get('id_procedimento')
 
-    if not id_exame:
+    if not id_procedimento:
         return jsonify({
-            "error": "ID do exame inválido"
+            "error": "ID do procedimento inválido"
         }), 400
 
-    if not entidade_existe("EXAME", id_exame):
+    if not entidade_existe("PROCEDIMENTO", id_procedimento):
         return jsonify({
-            "error": "Exame não encontrado"
+            "error": "Procedimento não encontrado"
         }), 404
 
-    if exame_ja_vinculado(id_consulta, id_exame):
+    if procedimento_ja_vinculado(id_consulta, id_procedimento):
         return jsonify({
-            "error": "Exame já vinculado à consulta"
+            "error": "Procedimento já vinculado à consulta"
         }), 409
 
     db = get_db_connection()
@@ -415,20 +415,20 @@ def add_exame_consulta(id_consulta):
     try:
         with db.cursor() as cursor:
             cursor.execute("""
-                INSERT INTO CONSULTA_EXAME (
+                INSERT INTO CONSULTA_PROCEDIMENTO (
                     id_consulta,
-                    id_exame
+                    id_procedimento
                 )
                 VALUES (%s, %s)
             """, (
                 id_consulta,
-                id_exame
+                id_procedimento
             ))
 
             db.commit()
 
             return jsonify({
-                "message": "Exame adicionado com sucesso"
+                "message": "Procedimento adicionado com sucesso"
             }), 201
 
     finally:

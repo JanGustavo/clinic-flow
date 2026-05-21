@@ -20,7 +20,7 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', '')
 
-from security import bcrypt
+from services.security import bcrypt
 from services.mail_service import mail
 from flask_cors import CORS
 CORS(app)
@@ -29,9 +29,10 @@ mail.init_app(app)
 
 from routes.usuario_routes import usuario_bp
 from routes.paciente_routes import paciente_bp
-from routes.medico_routes import medico_bp
+from routes.odontologo_routes import odontologo_bp
 from routes.consulta_routes import consulta_bp
-from routes.exame_routes import exame_bp
+from routes.procedimentos_routes import procedimento_bp
+from routes.anamnese_routes import anamnese_bp
 from services.auth_service import auth_bp
 
 # Configurações para JSON
@@ -45,9 +46,10 @@ from werkzeug.exceptions import HTTPException
 # Registrar Blueprints
 app.register_blueprint(usuario_bp)
 app.register_blueprint(paciente_bp)
-app.register_blueprint(medico_bp)
+app.register_blueprint(odontologo_bp)
 app.register_blueprint(consulta_bp)
-app.register_blueprint(exame_bp)
+app.register_blueprint(procedimento_bp)
+app.register_blueprint(anamnese_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
 
 @app.after_request

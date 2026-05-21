@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify
 from database import get_db_connection
 
-exame_bp = Blueprint('exame', __name__)
+procedimento_bp = Blueprint('procedimento', __name__)
 
-@exame_bp.route('/exames', methods=['GET'])
-def list_exames():
+@procedimento_bp.route('/procedimentos', methods=['GET'])
+def list_procedimentos():
     db = get_db_connection()
     try:
         with db.cursor() as cursor:
@@ -13,15 +13,15 @@ def list_exames():
                     id,
                     nome,
                     valor
-                FROM EXAME
+                FROM PROCEDIMENTO
                 ORDER BY nome
             """)
             return jsonify(cursor.fetchall()), 200
     finally:
         db.close()
 
-@exame_bp.route('/exames/<int:id>', methods=['GET'])
-def get_exame(id):
+@procedimento_bp.route('/procedimentos/<int:id>', methods=['GET'])
+def get_procedimento(id):
     db = get_db_connection()
     try:
         with db.cursor() as cursor:
@@ -30,16 +30,16 @@ def get_exame(id):
                 id,
                 nome,
                 valor
-            FROM EXAME
+            FROM PROCEDIMENTO
             WHERE id = %s
         """, (id,))
-            exame = cursor.fetchone()
-            if exame:
-                return jsonify(exame), 200
+            procedimento = cursor.fetchone()
+            if procedimento:
+                return jsonify(procedimento), 200
             else:
                 return jsonify(
                     {
-                    'error': 'Exame não encontrado'
+                    'error': 'Procedimento não encontrado'
                     }), 404
     finally:
         db.close()

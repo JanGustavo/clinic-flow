@@ -3,3 +3,4 @@ pymysql
 python-dotenv
 cryptography
 Flask-Bcrypt
+Flask-Mail

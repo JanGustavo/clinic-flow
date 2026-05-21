@@ -1,18 +1,17 @@
 from flask import Blueprint, jsonify, request
-from flask_bcrypt import Bcrypt
 from database import get_db_connection
+from services.security import bcrypt
 
 # --- CONSTANTES ---
 TIPOS_VALIDOS = {
     "ADMIN",
     "RECEPCIONISTA",
-    "MEDICO",
+    "ODONTOLOGO",
     "PACIENTE"
-}
+} 
 
 # --- CONFIGURAÇÃO ---
 usuario_bp = Blueprint('usuario', __name__)
-bcrypt = Bcrypt()
 
 # --- FUNÇÕES AUXILIARES DE BANCO DE DADOS ---
 def email_existe(email, id_excluido=None):

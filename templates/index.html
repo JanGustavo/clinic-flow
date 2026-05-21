@@ -49,7 +49,7 @@
                 <option value="">Selecione o Tipo</option>
                 <option value="ADMIN">ADMIN</option>
                 <option value="RECEPCIONISTA">RECEPCIONISTA</option>
-                <option value="MEDICO">MEDICO</option>
+                <option value="ODONTOLOGO">ODONTOLOGO</option>
                 <option value="PACIENTE">PACIENTE</option>
             </select>
             <div class="row">
@@ -90,15 +90,15 @@
     </section>
 
     <section>
-        <h2>Médicos e Exames</h2>
+        <h2>Odontólogos e Procedimentos</h2>
         <div style="display: flex; gap: 40px;">
             <div style="flex: 1;">
-                <h3>Médicos</h3>
-                <ul id="listaMedicos"></ul>
+                <h3>Odontólogos</h3>
+                <ul id="listaOdontologos"></ul>
             </div>
             <div style="flex: 1;">
-                <h3>Catálogo de Exames</h3>
-                <ul id="listaExames"></ul>
+                <h3>Catálogo de Procedimentos</h3>
+                <ul id="listaProcedimentos"></ul>
             </div>
         </div>
     </section>
@@ -107,7 +107,7 @@
         <h2>Agendar Consulta</h2>
         <form id="formConsulta">
             <select id="cPaciente" required><option value="">Selecione o Paciente</option></select>
-            <select id="cMedico" required><option value="">Selecione o Médico</option></select>
+            <select id="cOdontologo" required><option value="">Selecione o Odontólogo</option></select>
             <select id="cResponsavel" required><option value="">Selecione o Responsável (Usuário)</option></select>
             <input type="datetime-local" id="cDataHora" required>
             <input type="text" id="cMotivo" placeholder="Motivo">
@@ -120,7 +120,7 @@
         <h2>Consultas Realizadas</h2>
         <table id="tabelaConsultas">
             <thead>
-                <tr><th>ID</th><th>Paciente</th><th>Médico</th><th>Data/Hora</th><th>Ações</th></tr>
+                <tr><th>ID</th><th>Paciente</th><th>Odontólogo</th><th>Data/Hora</th><th>Ações</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -137,7 +137,8 @@
         async function loadData() {
             // Carregar Usuários
             const resU = await fetch('/usuarios');
-            const usuarios = await resU.json();
+            const resUJson = await resU.json();
+            const usuarios = resUJson.data || resUJson;
             const tbodyU = document.querySelector('#tabelaUsuarios tbody');
             const selectU = document.querySelector('#cResponsavel');
             tbodyU.innerHTML = '';
@@ -159,7 +160,8 @@
 
             // Carregar Pacientes
             const resP = await fetch('/pacientes');
-            const pacientes = await resP.json();
+            const resPJson = await resP.json();
+            const pacientes = resPJson.data || resPJson;
             const tbodyP = document.querySelector('#tabelaPacientes tbody');
             const selectP = document.querySelector('#cPaciente');
             tbodyP.innerHTML = '';
@@ -169,41 +171,44 @@
                 selectP.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
             });
 
-            // Carregar Médicos
-            const resM = await fetch('/medicos');
-            const medicos = await resM.json();
-            const listaM = document.querySelector('#listaMedicos');
-            const selectM = document.querySelector('#cMedico');
-            listaM.innerHTML = '';
-            selectM.innerHTML = '<option value="">Selecione o Médico</option>';
-            medicos.forEach(m => {
-                listaM.innerHTML += `<li>${m.nome} (${m.especialidade})</li>`;
-                selectM.innerHTML += `<option value="${m.id}">${m.nome}</option>`;
+            // Carregar Odontólogos
+            const resO = await fetch('/odontologos');
+            const resOJson = await resO.json();
+            const odontologos = resOJson.data || resOJson;
+            const listaO = document.querySelector('#listaOdontologos');
+            const selectO = document.querySelector('#cOdontologo');
+            listaO.innerHTML = '';
+            selectO.innerHTML = '<option value="">Selecione o Odontólogo</option>';
+            odontologos.forEach(o => {
+                listaO.innerHTML += `<li>${o.nome} (${o.especialidade})</li>`;
+                selectO.innerHTML += `<option value="${o.id}">${o.nome}</option>`;
             });
 
-            // Carregar Exames
-            const resE = await fetch('/exames');
-            const exames = await resE.json();
-            const listaE = document.querySelector('#listaExames');
+            // Carregar Procedimentos
+            const resE = await fetch('/procedimentos');
+            const resEJson = await resE.json();
+            const procedimentos = resEJson.data || resEJson;
+            const listaE = document.querySelector('#listaProcedimentos');
             listaE.innerHTML = '';
-            exames.forEach(e => {
-                listaE.innerHTML += `<li>${e.nome} - R$ ${e.valor}</li>`;
+            procedimentos.forEach(p => {
+                listaE.innerHTML += `<li>${p.nome} - R$ ${p.valor}</li>`;
             });
 
             // Carregar Consultas
             const resC = await fetch('/consultas');
-            const consultas = await resC.json();
+            const resCJson = await resC.json();
+            const consultas = resCJson.data || resCJson;
             const tbodyC = document.querySelector('#tabelaConsultas tbody');
             tbodyC.innerHTML = '';
             consultas.forEach(c => {
                 tbodyC.innerHTML += `
                     <tr>
                         <td>${c.id}</td>
-                        <td>${c.paciente_nome}</td>
-                        <td>${c.medico_nome}</td>
+                        <td>${c.paciente}</td>
+                        <td>${c.odontologo}</td>
                         <td>${new Date(c.data_hora).toLocaleString()}</td>
                         <td>
-                            <button onclick="solicitarExame(${c.id})">Solicitar Exame</button>
+                            <button onclick="solicitarProcedimento(${c.id})">Solicitar Procedimento</button>
                         </td>
                     </tr>`;
             });
@@ -302,7 +307,7 @@
             e.preventDefault();
             const data = {
                 id_paciente: document.getElementById('cPaciente').value,
-                id_medico: document.getElementById('cMedico').value,
+                id_odontologo: document.getElementById('cOdontologo').value,
                 id_usuario_responsavel: document.getElementById('cResponsavel').value,
                 data_hora: document.getElementById('cDataHora').value,
                 motivo: document.getElementById('cMotivo').value,
@@ -317,15 +322,15 @@
             e.target.reset();
         };
 
-        async function solicitarExame(idConsulta) {
-            const idExame = prompt("Digite o ID do exame do catálogo:");
-            if (!idExame) return;
-            await fetch(`/consultas/${idConsulta}/exames`, {
+        async function solicitarProcedimento(idConsulta) {
+            const idProcedimento = prompt("Digite o ID do procedimento do catálogo:");
+            if (!idProcedimento) return;
+            await fetch(`/consultas/${idConsulta}/procedimentos`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id_exame: idExame})
+                body: JSON.stringify({id_procedimento: idProcedimento})
             });
-            alert("Exame solicitado!");
+            alert("Procedimento solicitado!");
         }
 
         loadData();
