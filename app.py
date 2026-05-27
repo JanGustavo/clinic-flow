@@ -34,6 +34,7 @@ from routes.consulta_routes import consulta_bp
 from routes.procedimentos_routes import procedimento_bp
 from routes.anamnese_routes import anamnese_bp
 from services.auth_service import auth_bp
+from routes.swagger_routes import swagger_bp
 
 # Configurações para JSON
 app.config['JSON_SORT_KEYS'] = False
@@ -51,9 +52,13 @@ app.register_blueprint(consulta_bp)
 app.register_blueprint(procedimento_bp)
 app.register_blueprint(anamnese_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(swagger_bp)
 
 @app.after_request
 def padronizar_respostas(response):
+    if request.path == '/swagger.json':
+        return response
+
     if response.is_json:
         try:
             dados = response.get_json()

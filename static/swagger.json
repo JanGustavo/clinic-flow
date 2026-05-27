@@ -1,0 +1,1251 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SORRISO PERFEITO API",
+    "description": "API interativa para gestão de clínica odontológica, incluindo controle de acessos (usuários), pacientes, prontuário (anamnese), odontólogos, agendamento de consultas e catalogação de procedimentos clínicos.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Servidor de Desenvolvimento Local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Autenticação",
+      "description": "Gerenciamento de sessões, login, logout e redefinição de senhas."
+    },
+    {
+      "name": "Usuários",
+      "description": "Controle de usuários com níveis de acesso no sistema (ADMIN, RECEPCIONISTA, ODONTOLOGO, PACIENTE)."
+    },
+    {
+      "name": "Pacientes",
+      "description": "Gestão de prontuários de pacientes."
+    },
+    {
+      "name": "Anamnese",
+      "description": "Histórico de saúde e questionários médicos dos pacientes."
+    },
+    {
+      "name": "Odontólogos",
+      "description": "Gestão de odontólogos e escala profissional."
+    },
+    {
+      "name": "Consultas",
+      "description": "Controle e agendamento de consultas clínicas e associação de procedimentos realizados."
+    },
+    {
+      "name": "Procedimentos",
+      "description": "Catálogo de procedimentos odontológicos oferecidos pela clínica."
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Realizar login no sistema",
+        "description": "Valida as credenciais e retorna um Token JWT para autenticação.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "senha"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "test_unique@example.com"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login realizado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "message": "Login realizado com sucesso",
+                    "token": "ey...token_de_sessao",
+                    "usuario": {
+                      "id": 10,
+                      "nome": "Test User",
+                      "email": "test_unique@example.com",
+                      "tipo": "PACIENTE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados ausentes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciais inválidas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Encerrar sessão de usuário",
+        "responses": {
+          "200": {
+            "description": "Logout efetuado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/recuperar-senha": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Solicitar recuperação de senha",
+        "description": "Envia um token de recuperação via e-mail se o cadastro existir.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "user@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Instruções enviadas para redefinir senha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/redefinir-senha": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Redefinir senha usando Token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "senha",
+                  "senha_repeat"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Token enviado no e-mail de recuperação"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "newpassword123"
+                  },
+                  "senha_repeat": {
+                    "type": "string",
+                    "example": "newpassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Senha alterada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro de validação ou token inválido/expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuarios": {
+      "get": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Listar todos os usuários",
+        "responses": {
+          "200": {
+            "description": "Lista de usuários",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Usuario"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Criar novo usuário",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsuarioInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuário criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "E-mail já cadastrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuarios/{id}": {
+      "get": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Buscar usuário por ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados do usuário",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/Usuario"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usuário não encontrado"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Atualizar dados de um usuário",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsuarioInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Usuário atualizado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usuário não encontrado"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Usuários"
+        ],
+        "summary": "Excluir um usuário",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuário excluído com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usuário não encontrado"
+          }
+        }
+      }
+    },
+    "/pacientes": {
+      "get": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Listar pacientes cadastrados",
+        "responses": {
+          "200": {
+            "description": "Lista de pacientes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Paciente"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Cadastrar novo paciente",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PacienteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Paciente cadastrado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CPF já cadastrado"
+          }
+        }
+      }
+    },
+    "/pacientes/{id}": {
+      "get": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Buscar paciente por ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados do paciente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/Paciente"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Paciente não encontrado"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Atualizar cadastro do paciente",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PacienteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paciente atualizado com sucesso"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Pacientes"
+        ],
+        "summary": "Excluir cadastro de paciente",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paciente excluído com sucesso"
+          }
+        }
+      }
+    },
+    "/anamneses/{id}": {
+      "get": {
+        "tags": [
+          "Anamnese"
+        ],
+        "summary": "Buscar Anamnese por ID",
+        "description": "Retorna o questionário de saúde detalhado e histórico do paciente correspondente.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados da anamnese",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/Anamnese"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Anamnese não encontrada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/odontologos": {
+      "get": {
+        "tags": [
+          "Odontólogos"
+        ],
+        "summary": "Listar odontólogos cadastrados",
+        "responses": {
+          "200": {
+            "description": "Lista de odontólogos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Odontologo"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Odontólogos"
+        ],
+        "summary": "Cadastrar novo odontólogo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OdontologoInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Odontólogo cadastrado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CRO já cadastrado"
+          }
+        }
+      }
+    },
+    "/odontologos/{id}": {
+      "get": {
+        "tags": [
+          "Odontólogos"
+        ],
+        "summary": "Buscar odontólogo por ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados do odontólogo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/Odontologo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Odontólogo não encontrado"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Odontólogos"
+        ],
+        "summary": "Atualizar cadastro de odontólogo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OdontologoInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cadastro atualizado"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Odontólogos"
+        ],
+        "summary": "Excluir cadastro de odontólogo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Odontólogo excluído"
+          }
+        }
+      }
+    },
+    "/consultas": {
+      "get": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Listar consultas agendadas",
+        "responses": {
+          "200": {
+            "description": "Lista de consultas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Consulta"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Agendar uma nova consulta",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultaInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Consulta marcada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consultas/{id}": {
+      "get": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Buscar consulta por ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados da consulta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/Consulta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Consulta não encontrada"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Atualizar dados de uma consulta",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultaInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consulta atualizada"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Excluir agendamento de consulta",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consulta excluída"
+          }
+        }
+      }
+    },
+    "/consultas/{id_consulta}/procedimentos": {
+      "get": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Listar procedimentos realizados na consulta",
+        "parameters": [
+          {
+            "name": "id_consulta",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de procedimentos associados à consulta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "integer", "example": 1 },
+                          "nome": { "type": "string", "example": "Limpeza Dental" },
+                          "valor": { "type": "number", "format": "float", "example": 150.00 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Consultas"
+        ],
+        "summary": "Vincular um procedimento realizado à consulta",
+        "parameters": [
+          {
+            "name": "id_consulta",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "id_procedimento"
+                ],
+                "properties": {
+                  "id_procedimento": {
+                    "type": "integer",
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Procedimento vinculado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponseEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Procedimento já vinculado à consulta"
+          }
+        }
+      }
+    },
+    "/procedimentos": {
+      "get": {
+        "tags": [
+          "Procedimentos"
+        ],
+        "summary": "Listar procedimentos no catálogo",
+        "responses": {
+          "200": {
+            "description": "Catálogo de procedimentos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Procedimento"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/procedimentos/{id}": {
+      "get": {
+        "tags": [
+          "Procedimentos"
+        ],
+        "summary": "Buscar procedimento do catálogo por ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados do procedimento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "$ref": "#/components/schemas/Procedimento"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Procedimento não encontrado"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SuccessResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "example": "Operação executada com sucesso"
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Descrição detalhada do erro ou falha de validação"
+          }
+        }
+      },
+      "Usuario": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "nome": { "type": "string", "example": "Dr. Fernando Dentista" },
+          "email": { "type": "string", "format": "email", "example": "fernando@example.com" },
+          "tipo": { "type": "string", "enum": ["ADMIN", "RECEPCIONISTA", "ODONTOLOGO", "PACIENTE"], "example": "ODONTOLOGO" }
+        }
+      },
+      "UsuarioInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "email",
+          "senha",
+          "senha_repeat",
+          "tipo"
+        ],
+        "properties": {
+          "nome": { "type": "string", "minLength": 3, "maxLength": 100, "example": "Dr. Fernando Dentista" },
+          "email": { "type": "string", "format": "email", "example": "fernando@example.com" },
+          "senha": { "type": "string", "minLength": 6, "example": "secret123" },
+          "senha_repeat": { "type": "string", "example": "secret123" },
+          "tipo": { "type": "string", "enum": ["ADMIN", "RECEPCIONISTA", "ODONTOLOGO", "PACIENTE"], "example": "ODONTOLOGO" }
+        }
+      },
+      "Paciente": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 5 },
+          "nome": { "type": "string", "example": "Ana Santos" },
+          "data_nascimento": { "type": "string", "format": "date", "example": "1992-07-20" },
+          "cpf": { "type": "string", "minLength": 11, "maxLength": 11, "example": "98765432109" },
+          "telefone": { "type": "string", "example": "11988887777" },
+          "cep": { "type": "string", "example": "01001000" },
+          "logradouro": { "type": "string", "example": "Praça da Sé" },
+          "numero_casa": { "type": "string", "example": "100" },
+          "bairro": { "type": "string", "example": "Sé" },
+          "cidade": { "type": "string", "example": "São Paulo" },
+          "estado": { "type": "string", "maxLength": 2, "example": "SP" }
+        }
+      },
+      "PacienteInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "data_nascimento",
+          "cpf",
+          "cep",
+          "logradouro",
+          "numero_casa",
+          "bairro",
+          "cidade",
+          "estado"
+        ],
+        "properties": {
+          "nome": { "type": "string", "example": "Ana Santos" },
+          "data_nascimento": { "type": "string", "format": "date", "example": "1992-07-20" },
+          "cpf": { "type": "string", "pattern": "^[0-9]{11}$", "example": "98765432109" },
+          "telefone": { "type": "string", "example": "11988887777" },
+          "cep": { "type": "string", "example": "01001000" },
+          "logradouro": { "type": "string", "example": "Praça da Sé" },
+          "numero_casa": { "type": "string", "example": "100" },
+          "bairro": { "type": "string", "example": "Sé" },
+          "cidade": { "type": "string", "example": "São Paulo" },
+          "estado": { "type": "string", "maxLength": 2, "example": "SP" }
+        }
+      },
+      "Anamnese": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "id_paciente": { "type": "integer", "example": 5 },
+          "alergia": { "type": "boolean", "example": true },
+          "descricao_alergia": { "type": "string", "example": "Penicilina" },
+          "diabetes": { "type": "boolean", "example": false },
+          "hipertensao": { "type": "boolean", "example": true },
+          "cardiopatia": { "type": "boolean", "example": false },
+          "gestante": { "type": "boolean", "nullable": true, "example": false },
+          "usa_medicacao": { "type": "boolean", "example": true },
+          "descricao_medicacao": { "type": "string", "example": "Aspirina" },
+          "observacoes": { "type": "string", "example": "Paciente cooperativo" },
+          "criado_em": { "type": "string", "format": "date-time", "example": "2026-05-21T14:49:00" },
+          "atualizado_em": { "type": "string", "format": "date-time", "example": "2026-05-21T14:49:00" }
+        }
+      },
+      "Odontologo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 2 },
+          "nome": { "type": "string", "example": "Dr. Fernando Dentista" },
+          "cro": { "type": "string", "example": "TEST-1234" },
+          "salario": { "type": "number", "format": "float", "example": 12000.00 },
+          "id_especialidade": { "type": "integer", "example": 1 },
+          "id_usuario": { "type": "integer", "example": 10 }
+        }
+      },
+      "OdontologoInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "cro",
+          "salario",
+          "id_especialidade",
+          "id_usuario"
+        ],
+        "properties": {
+          "nome": { "type": "string", "example": "Dr. Fernando Dentista" },
+          "cro": { "type": "string", "example": "TEST-1234" },
+          "salario": { "type": "number", "minimum": 0, "example": 12000.00 },
+          "id_especialidade": { "type": "integer", "example": 1 },
+          "id_usuario": { "type": "integer", "example": 10 }
+        }
+      },
+      "Consulta": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "data_hora": { "type": "string", "format": "date-time", "example": "2026-05-25T10:00:00" },
+          "motivo": { "type": "string", "example": "Rotina Geral" },
+          "valor": { "type": "number", "format": "float", "example": 150.00 },
+          "prioridade": { "type": "string", "enum": ["BAIXA", "MEDIA", "ALTA"], "example": "MEDIA" },
+          "paciente": { "type": "string", "example": "Ana Santos" },
+          "odontologo": { "type": "string", "example": "Dr. Fernando Dentista" },
+          "usuario_responsavel": { "type": "string", "example": "Recepcionista Maria" }
+        }
+      },
+      "ConsultaInput": {
+        "type": "object",
+        "required": [
+          "id_paciente",
+          "id_odontologo",
+          "id_usuario_responsavel",
+          "data_hora",
+          "valor"
+        ],
+        "properties": {
+          "id_paciente": { "type": "integer", "example": 5 },
+          "id_odontologo": { "type": "integer", "example": 2 },
+          "id_usuario_responsavel": { "type": "integer", "example": 1 },
+          "data_hora": { "type": "string", "format": "date-time", "example": "2026-05-25T10:00:00" },
+          "motivo": { "type": "string", "example": "Rotina Geral" },
+          "valor": { "type": "number", "minimum": 0, "example": 150.00 },
+          "prioridade": { "type": "string", "enum": ["BAIXA", "MEDIA", "ALTA"], "example": "MEDIA" }
+        }
+      },
+      "Procedimento": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "nome": { "type": "string", "example": "Limpeza Dental" },
+          "valor": { "type": "number", "format": "float", "example": 150.00 }
+        }
+      }
+    }
+  }
+}

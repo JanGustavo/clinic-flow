@@ -1,0 +1,83 @@
+<svg width="900" height="260" viewBox="0 0 900 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradSmile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22C1C3"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+
+  </defs>
+
+  <!-- Símbolo -->
+  <g transform="translate(45,35)">
+
+    <!-- Contorno abstrato do dente -->
+    <path
+      d="M85 20
+      C50 20 25 48 25 88
+      C25 118 38 145 52 168
+      C58 178 67 184 75 184
+      C84 184 90 177 94 165
+      L100 145
+      C102 138 108 134 115 134
+      C122 134 128 138 130 145
+      L136 165
+      C140 177 146 184 155 184
+      C163 184 172 178 178 168
+      C192 145 205 118 205 88
+      C205 48 180 20 145 20
+      C133 20 124 24 115 33
+      C106 24 97 20 85 20Z"
+      fill="url(#gradSmile)"
+      opacity="0.12"
+    />
+
+    <!-- Sorriso principal -->
+    <path
+      d="M55 98
+      C78 135 152 135 175 98"
+      stroke="url(#gradSmile)"
+      stroke-width="12"
+      stroke-linecap="round"
+    />
+
+    <!-- Brilho -->
+    <path
+      d="M155 50 L161 64 L175 70 L161 76 L155 90 L149 76 L135 70 L149 64 Z"
+      fill="#22C1C3"
+      opacity="0.9"
+    />
+  </g>
+
+  <!-- Texto -->
+  <g transform="translate(280,85)">
+    <text
+      x="0"
+      y="0"
+      font-family="Poppins, Arial, sans-serif"
+      font-size="52"
+      font-weight="700"
+      fill="#0F172A">
+      Sorriso
+    </text>
+
+    <text
+      x="0"
+      y="58"
+      font-family="Poppins, Arial, sans-serif"
+      font-size="52"
+      font-weight="300"
+      fill="#2563EB">
+      Perfeito
+    </text>
+
+    <text
+      x="2"
+      y="100"
+      font-family="Arial, sans-serif"
+      font-size="18"
+      letter-spacing="2"
+      fill="#64748B">
+      CLÍNICA ODONTOLÓGICA
+    </text>
+  </g>
+</svg>
