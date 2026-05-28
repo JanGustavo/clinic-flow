@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/pages/forgot.dart';
 import 'package:frontend/pages/register.dart';
 import 'package:frontend/pages/home.dart';
 import 'package:frontend/pages/login.dart';
+import 'package:frontend/pages/recover.dart';
+import 'package:frontend/pages/consultas.dart';
+import 'package:frontend/pages/procedimentos.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +28,10 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
+        '/forgot': (_) => const ForgotScreen(),
+        '/recover': (_) => const RecoverScreen(),
+        '/exames': (_) => const ConsultasScreen(),
+        '/procedimentos': (_) => const ProcedimentosScreen(),
       },
     );
   }

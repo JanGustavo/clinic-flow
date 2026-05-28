@@ -1,55 +1,40 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:frontend/pages/home.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? super.key});
+class ForgotScreen extends StatefulWidget {
+  const ForgotScreen({Key? super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotScreen> createState() => _ForgotScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ForgotScreenState extends State<ForgotScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controllers para capturar os dados
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _senhaController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscureSenha = true;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _senhaController.dispose();
     super.dispose();
   }
 
-  // Função para enviar o POST para a API
-  Future<void> _fazerLogin() async {
+  Future<void> _enviarCodigo() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Endpoint da sua API Flask (Ajuste o IP/URL conforme seu ambiente)
-    final url = Uri.parse('http://127.0.0.1:5000/auth/login');
-
-    // Payload idêntico ao solicitado, injetando PACIENTE implicitamente
-    final Map<String, dynamic> payload = {
-      "email": _emailController.text.trim(),
-      "senha": _senhaController.text.trim(),
-      "tipo": "PACIENTE",
-    };
+    final url = Uri.parse('http://127.0.0.1:5000/auth/forgot');
+    final payload = {'email': _emailController.text.trim()};
 
     try {
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
 
@@ -57,40 +42,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      final sucesso =
-          response.statusCode == 200 &&
-          (body?['success'] == true || body?['data'] != null);
-
+      final sucesso = response.statusCode == 200 || response.statusCode == 201;
       if (sucesso) {
-        final data = body?['data'];
-        final mensagem = data is Map<String, dynamic>
-            ? (data['message']?.toString() ?? 'Login realizado com sucesso!')
-            : 'Login realizado com sucesso!';
-        final token = data is Map<String, dynamic>
-            ? data['token']?.toString()
-            : null;
-
-        if (token != null && token.isNotEmpty) {
-          await _salvarToken(token);
-        }
-
-        if (!mounted) return;
+        final mensagem =
+            body?['message']?.toString() ??
+            'Código enviado para o e-mail informado.';
         _mostrarSucesso(mensagem);
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomePage(sessionToken: token)),
-          (route) => false,
-        );
       } else {
         final mensagem =
             body?['error']?.toString() ??
             body?['message']?.toString() ??
-            'Falha ao fazer login.';
+            'Falha ao solicitar o código.';
         _mostrarErro(mensagem);
       }
     } catch (e) {
       if (!mounted) return;
-      debugPrint('Login error: $e');
-      _mostrarErro('Falha ao finalizar login: ${e.runtimeType}');
+      debugPrint('Forgot error: $e');
+      _mostrarErro('Falha ao solicitar o código: ${e.runtimeType}');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -106,15 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (_) {}
     return null;
-  }
-
-  Future<void> _salvarToken(String token) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('session_token', token);
-    } catch (e) {
-      debugPrint('Session token not persisted: $e');
-    }
   }
 
   void _mostrarSucesso(String mensagem) {
@@ -139,11 +98,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Cores da paleta Neo-Pastel Chiclete
-    const colorBg = Color(0xFFF8F9FA); // Off-white clínico
-    const colorPrimary = Color(0xFF00B4D8); // Azul Ciano/Chiclete
-    const colorSecondary = Color(0xFFF50057); // Rosa Neon/Magenta (Acentos)
-    const colorText = Color(0xFF212529); // Grafite Escuro
+    const colorBg = Color(0xFFF8F9FA);
+    const colorPrimary = Color(0xFF00B4D8);
+    const colorSecondary = Color(0xFFF50057);
+    const colorText = Color(0xFF212529);
     const colorMuted = Color(0xFF6C757D);
 
     return Scaffold(
@@ -183,10 +141,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     child: AutofillGroup(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Header / Logo estilizado
                           Center(
                             child: Semantics(
                               label: 'Sorriso Perfeito',
@@ -199,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            "Login",
+                            'Esqueci minha senha',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 28,
@@ -209,83 +165,29 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           Text(
-                            "Acesse sua conta e continue",
+                            'Informe seu e-mail para receber o código de redefinição.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: colorMuted, fontSize: 14),
                           ),
                           const SizedBox(height: 32),
-
-                          // Campo: Email
                           TextFormField(
                             controller: _emailController,
                             style: const TextStyle(color: colorText),
                             keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
+                            textInputAction: TextInputAction.done,
                             autofillHints: const [AutofillHints.email],
+                            onFieldSubmitted: (_) => _enviarCodigo(),
                             decoration: _buildInputDecoration(
-                              "E-mail",
+                              'E-mail',
                               Icons.mail_outline,
                               colorPrimary,
                             ),
                             validator: (value) =>
                                 value == null || !value.contains('@')
-                                ? "E-mail inválido"
+                                ? 'E-mail inválido'
                                 : null,
                           ),
-                          const SizedBox(height: 20),
-
-                          // Campo: Senha
-                          TextFormField(
-                            controller: _senhaController,
-                            style: const TextStyle(color: colorText),
-                            obscureText: _obscureSenha,
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            textInputAction: TextInputAction.done,
-                            autofillHints: const [AutofillHints.password],
-                            onFieldSubmitted: (_) => _fazerLogin(),
-                            decoration:
-                                _buildInputDecoration(
-                                  "Senha",
-                                  Icons.lock_outline,
-                                  colorPrimary,
-                                ).copyWith(
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscureSenha
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                      color: colorPrimary,
-                                    ),
-                                    onPressed: () => setState(
-                                      () => _obscureSenha = !_obscureSenha,
-                                    ),
-                                  ),
-                                ),
-                            validator: (value) =>
-                                value == null || value.length < 6
-                                ? "A senha deve ter 6+ caracteres"
-                                : null,
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => Navigator.of(
-                                      context,
-                                    ).pushNamed('/forgot'),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text('Esqueci minha senha'),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Botão de Login com gradiente Chiclete (Blue & Pink)
+                          const SizedBox(height: 24),
                           Container(
                             height: 55,
                             decoration: BoxDecoration(
@@ -304,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _fazerLogin,
+                              onPressed: _isLoading ? null : _enviarCodigo,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
@@ -317,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: Colors.white,
                                     )
                                   : const Text(
-                                      "Entrar",
+                                      'Enviar código',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -327,22 +229,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Ainda não tem conta?",
-                                style: TextStyle(color: colorMuted),
-                              ),
-                              TextButton(
-                                onPressed: _isLoading
-                                    ? null
-                                    : () => Navigator.of(
-                                        context,
-                                      ).pushNamed('/register'),
-                                child: const Text("Cadastre-se"),
-                              ),
-                            ],
+                          TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: const Text('Voltar para o login'),
                           ),
                         ],
                       ),
@@ -357,7 +248,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper para manter o design clean e padronizado dos inputs
   InputDecoration _buildInputDecoration(
     String label,
     IconData icon,

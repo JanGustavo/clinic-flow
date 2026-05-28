@@ -1,55 +1,49 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:frontend/pages/home.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? super.key});
+class RecoverScreen extends StatefulWidget {
+  const RecoverScreen({Key? super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RecoverScreen> createState() => _RecoverScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RecoverScreenState extends State<RecoverScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controllers para capturar os dados
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _tokenController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
+  final TextEditingController _senhaRepeatController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscureSenha = true;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _tokenController.dispose();
     _senhaController.dispose();
+    _senhaRepeatController.dispose();
     super.dispose();
   }
 
-  // Função para enviar o POST para a API
-  Future<void> _fazerLogin() async {
+  Future<void> _fazerRecuperacao() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Endpoint da sua API Flask (Ajuste o IP/URL conforme seu ambiente)
-    final url = Uri.parse('http://127.0.0.1:5000/auth/login');
-
-    // Payload idêntico ao solicitado, injetando PACIENTE implicitamente
-    final Map<String, dynamic> payload = {
-      "email": _emailController.text.trim(),
-      "senha": _senhaController.text.trim(),
-      "tipo": "PACIENTE",
+    final url = Uri.parse('http://127.0.0.1:5000/auth/redefinir-senha');
+    final payload = {
+      'senha': _senhaController.text.trim(),
+      'senha_repeat': _senhaRepeatController.text.trim(),
+      'token': _tokenController.text.trim(),
     };
 
     try {
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
 
@@ -57,40 +51,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      final sucesso =
-          response.statusCode == 200 &&
-          (body?['success'] == true || body?['data'] != null);
-
+      final sucesso = response.statusCode == 200 || response.statusCode == 201;
       if (sucesso) {
-        final data = body?['data'];
-        final mensagem = data is Map<String, dynamic>
-            ? (data['message']?.toString() ?? 'Login realizado com sucesso!')
-            : 'Login realizado com sucesso!';
-        final token = data is Map<String, dynamic>
-            ? data['token']?.toString()
-            : null;
-
-        if (token != null && token.isNotEmpty) {
-          await _salvarToken(token);
-        }
-
-        if (!mounted) return;
+        final mensagem =
+            body?['message']?.toString() ?? 'Senha redefinida com sucesso.';
         _mostrarSucesso(mensagem);
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomePage(sessionToken: token)),
-          (route) => false,
-        );
+        Navigator.of(context).pop();
       } else {
         final mensagem =
             body?['error']?.toString() ??
             body?['message']?.toString() ??
-            'Falha ao fazer login.';
+            'Falha ao redefinir senha.';
         _mostrarErro(mensagem);
       }
     } catch (e) {
       if (!mounted) return;
-      debugPrint('Login error: $e');
-      _mostrarErro('Falha ao finalizar login: ${e.runtimeType}');
+      debugPrint('Redefinição de senha error: $e');
+      _mostrarErro('Falha ao finalizar redefinição de senha: ${e.runtimeType}');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -106,15 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (_) {}
     return null;
-  }
-
-  Future<void> _salvarToken(String token) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('session_token', token);
-    } catch (e) {
-      debugPrint('Session token not persisted: $e');
-    }
   }
 
   void _mostrarSucesso(String mensagem) {
@@ -139,11 +107,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Cores da paleta Neo-Pastel Chiclete
-    const colorBg = Color(0xFFF8F9FA); // Off-white clínico
-    const colorPrimary = Color(0xFF00B4D8); // Azul Ciano/Chiclete
-    const colorSecondary = Color(0xFFF50057); // Rosa Neon/Magenta (Acentos)
-    const colorText = Color(0xFF212529); // Grafite Escuro
+    const colorBg = Color(0xFFF8F9FA);
+    const colorPrimary = Color(0xFF00B4D8);
+    const colorSecondary = Color(0xFFF50057);
+    const colorText = Color(0xFF212529);
     const colorMuted = Color(0xFF6C757D);
 
     return Scaffold(
@@ -183,10 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     child: AutofillGroup(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Header / Logo estilizado
                           Center(
                             child: Semantics(
                               label: 'Sorriso Perfeito',
@@ -199,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            "Login",
+                            'Redefinir Senha',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 28,
@@ -209,44 +174,37 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           Text(
-                            "Acesse sua conta e continue",
+                            'Use o token recebido por e-mail para definir uma nova senha.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: colorMuted, fontSize: 14),
                           ),
                           const SizedBox(height: 32),
-
-                          // Campo: Email
                           TextFormField(
-                            controller: _emailController,
+                            controller: _tokenController,
                             style: const TextStyle(color: colorText),
-                            keyboardType: TextInputType.emailAddress,
+                            keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.email],
                             decoration: _buildInputDecoration(
-                              "E-mail",
-                              Icons.mail_outline,
+                              'Token',
+                              Icons.vpn_key_outlined,
                               colorPrimary,
                             ),
                             validator: (value) =>
-                                value == null || !value.contains('@')
-                                ? "E-mail inválido"
+                                value == null || value.trim().isEmpty
+                                ? 'Token obrigatório'
                                 : null,
                           ),
                           const SizedBox(height: 20),
-
-                          // Campo: Senha
                           TextFormField(
                             controller: _senhaController,
                             style: const TextStyle(color: colorText),
                             obscureText: _obscureSenha,
                             enableSuggestions: false,
                             autocorrect: false,
-                            textInputAction: TextInputAction.done,
-                            autofillHints: const [AutofillHints.password],
-                            onFieldSubmitted: (_) => _fazerLogin(),
+                            textInputAction: TextInputAction.next,
                             decoration:
                                 _buildInputDecoration(
-                                  "Senha",
+                                  'Nova senha',
                                   Icons.lock_outline,
                                   colorPrimary,
                                 ).copyWith(
@@ -264,28 +222,36 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                             validator: (value) =>
                                 value == null || value.length < 6
-                                ? "A senha deve ter 6+ caracteres"
+                                ? 'A senha deve ter 6+ caracteres'
                                 : null,
                           ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => Navigator.of(
-                                      context,
-                                    ).pushNamed('/forgot'),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text('Esqueci minha senha'),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _senhaRepeatController,
+                            style: const TextStyle(color: colorText),
+                            obscureText: _obscureSenha,
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _fazerRecuperacao(),
+                            decoration: _buildInputDecoration(
+                              'Confirmar nova senha',
+                              Icons.lock_reset_outlined,
+                              colorPrimary,
                             ),
-                          ),
-                          const SizedBox(height: 14),
+                            validator: (value) {
+                              if (value == null || value.length < 6) {
+                                return 'A confirmação deve ter 6+ caracteres';
+                              }
 
-                          // Botão de Login com gradiente Chiclete (Blue & Pink)
+                              if (value != _senhaController.text) {
+                                return 'As senhas não conferem';
+                              }
+
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 24),
                           Container(
                             height: 55,
                             decoration: BoxDecoration(
@@ -304,7 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _fazerLogin,
+                              onPressed: _isLoading ? null : _fazerRecuperacao,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
@@ -317,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: Colors.white,
                                     )
                                   : const Text(
-                                      "Entrar",
+                                      'Redefinir senha',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -327,22 +293,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Ainda não tem conta?",
-                                style: TextStyle(color: colorMuted),
-                              ),
-                              TextButton(
-                                onPressed: _isLoading
-                                    ? null
-                                    : () => Navigator.of(
-                                        context,
-                                      ).pushNamed('/register'),
-                                child: const Text("Cadastre-se"),
-                              ),
-                            ],
+                          TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: const Text('Voltar para o login'),
                           ),
                         ],
                       ),
@@ -357,7 +312,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper para manter o design clean e padronizado dos inputs
   InputDecoration _buildInputDecoration(
     String label,
     IconData icon,
