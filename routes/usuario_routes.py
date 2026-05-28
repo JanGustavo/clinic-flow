@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from database import get_db_connection
 from services.security import bcrypt
+from services.auth_service import login_requerido, papeis_autorizados
 
 # --- CONSTANTES ---
 TIPOS_VALIDOS = {
@@ -96,6 +97,8 @@ def validar_usuario(nome, email, senha, senha_repeat, tipo):
 # --- ROTAS (BLUEPRINT) ---
 
 @usuario_bp.route('/usuarios', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN')
 def list_usuarios():
     """Lista todos os usuários cadastrados."""
     db = get_db_connection()
@@ -107,8 +110,12 @@ def list_usuarios():
         db.close()
 
 @usuario_bp.route('/usuarios/<int:id>', methods=['GET'])
+@login_requerido
 def get_usuario(id):
     """Obtém os detalhes de um usuário específico."""
+    if g.usuario_logado['tipo'].upper() != 'ADMIN' and g.usuario_logado['id'] != id:
+        return jsonify({"error": "Acesso negado: nível de acesso insuficiente"}), 403
+
     db = get_db_connection()
     try:
         with db.cursor() as cursor:
@@ -122,6 +129,8 @@ def get_usuario(id):
         db.close()
 
 @usuario_bp.route('/usuarios', methods=['POST'])
+@login_requerido
+@papeis_autorizados('ADMIN')
 def create_usuario():
     """Cria um novo usuário no sistema."""
     db = get_db_connection()
@@ -158,8 +167,12 @@ def create_usuario():
         db.close()
 
 @usuario_bp.route('/usuarios/<int:id>', methods=['PUT'])
+@login_requerido
 def update_usuario(id):
     """Atualiza um usuário existente (senha é opcional)."""
+    if g.usuario_logado['tipo'].upper() != 'ADMIN' and g.usuario_logado['id'] != id:
+        return jsonify({"error": "Acesso negado: nível de acesso insuficiente"}), 403
+
     db = get_db_connection()
     try: 
         with db.cursor() as cursor:
@@ -210,6 +223,8 @@ def update_usuario(id):
         db.close()
 
 @usuario_bp.route('/usuarios/<int:id>', methods=['DELETE'])
+@login_requerido
+@papeis_autorizados('ADMIN')
 def delete_usuario(id):
     """Deleta um usuário, tratando restrições de integridade."""
     db = get_db_connection()

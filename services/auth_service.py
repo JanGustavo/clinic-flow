@@ -1,19 +1,62 @@
-from flask import Blueprint, current_app, jsonify, request, session
-from itsdangerous import URLSafeTimedSerializer
+from flask import Blueprint, current_app, jsonify, request, session, g
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from database import get_db_connection
 from flask_mail import Message
 from services.security import bcrypt
 from services.mail_service import mail
+from functools import wraps 
+from flask import current_app 
+
 
 auth_bp = Blueprint('auth', __name__)
 
-def _gerar_token(payload):
+def _gerar_token(payload): 
     serializer = URLSafeTimedSerializer(
         current_app.config['SECRET_KEY'],
         salt='auth-token'
     )
     return serializer.dumps(payload)
 
+def login_requerido(funcao):
+    @wraps(funcao)
+    def wrapper(*args, **kwargs):
+        # Verifica se o usuário está autenticado
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Token de autenticação ausente ou inválido"}), 401
+        
+        token = auth_header.split(' ')[1] # Extrai o token do header
+        
+        # Valida o token
+        serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='auth-token')    
+        try:
+            dados_usuario = serializer.loads(token, max_age=21600) # Token válido por 6 horas
+            session['user_id'] = dados_usuario['id']
+            
+            g.user_id = dados_usuario['id']
+            g.usuario_logado = dados_usuario
+        except BadSignature:
+            return jsonify({"error": "Token de autenticação inválido"}), 401
+        except SignatureExpired:
+            return jsonify({"error": "Token de autenticação expirado"}), 401
+        
+        if 'user_id' not in session:
+            return jsonify({"error": "Autenticação necessária"}), 401
+        return funcao(*args, **kwargs)
+    return wrapper
+
+def papeis_autorizados(*papeis):
+    def decorator(funcao):
+        @wraps(funcao)
+        def wrapper(*args, **kwargs):
+            usuario = getattr(g, 'usuario_logado', None)
+            # Comparação insensível a maiúsculas/minúsculas para evitar erros de case
+            papeis_maiusculos = [p.upper() for p in papeis]
+            if not usuario or usuario.get('tipo', '').upper() not in papeis_maiusculos:
+                return jsonify({"error": "Acesso negado: nível de acesso insuficiente"}), 403
+            return funcao(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def _gerar_token_recuperacao(payload):
     serializer = URLSafeTimedSerializer(
@@ -97,6 +140,8 @@ def login():
         db.close()
 
 @auth_bp.route('/logout', methods=['POST'])
+@login_requerido
+@papeis_autorizados('admin', 'funcionario', 'paciente')
 def logout():
     session.clear()
     return jsonify({"message": "Logout realizado com sucesso"}), 200

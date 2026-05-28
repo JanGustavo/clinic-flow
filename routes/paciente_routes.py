@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import get_db_connection
 from datetime import datetime
-
+from services.auth_service import login_requerido, papeis_autorizados
 paciente_bp = Blueprint('paciente', __name__)
 
 
@@ -125,6 +125,8 @@ def validar_paciente(
 # --- ROTAS ---
 
 @paciente_bp.route('/pacientes', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO')
 def list_pacientes():
     """Lista todos os pacientes."""
 
@@ -158,6 +160,8 @@ def list_pacientes():
 
 
 @paciente_bp.route('/pacientes/<int:id>', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def get_paciente(id):
     """Obtém paciente por ID."""
 
@@ -196,6 +200,8 @@ def get_paciente(id):
 
 
 @paciente_bp.route('/pacientes', methods=['POST'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA')
 def create_paciente():
     """Cria um paciente."""
 
@@ -280,6 +286,8 @@ def create_paciente():
 
 
 @paciente_bp.route('/pacientes/<int:id>', methods=['PUT'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def update_paciente(id):
     """Atualiza paciente."""
 
@@ -385,6 +393,8 @@ def update_paciente(id):
 
 
 @paciente_bp.route('/pacientes/<int:id>', methods=['DELETE'])
+@login_requerido
+@papeis_autorizados('ADMIN')
 def delete_paciente(id):
     """Exclui paciente."""
 

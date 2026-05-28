@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from database import get_db_connection
+from services.auth_service import login_requerido, papeis_autorizados
 
 odontologo_bp = Blueprint('odontologo', __name__)
 
@@ -150,6 +151,8 @@ def validar_odontologo(nome, cro, salario, id_especialidade):
 # --- ROTAS ---
 
 @odontologo_bp.route('/odontologos', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO')
 def list_odontologos():
     """Lista todos os odontólogos."""
 
@@ -177,6 +180,8 @@ def list_odontologos():
 
 
 @odontologo_bp.route('/odontologos/<int:id>', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def get_odontologo(id):
     """Obtém um odontólogo específico."""
 
@@ -211,6 +216,8 @@ def get_odontologo(id):
 
 
 @odontologo_bp.route('/odontologos', methods=['POST'])
+@login_requerido
+@papeis_autorizados('ADMIN')
 def create_odontologo():
     """Cria um odontólogo."""
 
@@ -276,6 +283,8 @@ def create_odontologo():
 
 
 @odontologo_bp.route('/odontologos/<int:id>', methods=['PUT'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'ODONTOLOGO')
 def update_odontologo(id):
     """Atualiza odontólogo."""
 
@@ -353,6 +362,8 @@ def update_odontologo(id):
 
 
 @odontologo_bp.route('/odontologos/<int:id>', methods=['DELETE'])
+@login_requerido
+@papeis_autorizados('ADMIN')
 def delete_odontologo(id):
     """Exclui odontólogo."""
 
@@ -390,6 +401,8 @@ def delete_odontologo(id):
     '/odontologos/disponiveis/<dia_semana>/<turno>',
     methods=['GET']
 )
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def list_odontologos_disponiveis(dia_semana, turno):
     """Lista odontólogos disponíveis por dia/turno."""
 

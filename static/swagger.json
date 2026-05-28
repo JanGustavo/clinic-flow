@@ -11,6 +11,11 @@
       "description": "Servidor de Desenvolvimento Local"
     }
   ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
   "tags": [
     {
       "name": "Autenticação",
@@ -44,6 +49,7 @@
   "paths": {
     "/auth/login": {
       "post": {
+        "security": [],
         "tags": [
           "Autenticação"
         ],
@@ -144,6 +150,7 @@
     },
     "/auth/recuperar-senha": {
       "post": {
+        "security": [],
         "tags": [
           "Autenticação"
         ],
@@ -185,6 +192,7 @@
     },
     "/auth/redefinir-senha": {
       "post": {
+        "security": [],
         "tags": [
           "Autenticação"
         ],
@@ -994,6 +1002,7 @@
     },
     "/procedimentos": {
       "get": {
+        "security": [],
         "tags": [
           "Procedimentos"
         ],
@@ -1023,6 +1032,7 @@
     },
     "/procedimentos/{id}": {
       "get": {
+        "security": [],
         "tags": [
           "Procedimentos"
         ],
@@ -1060,6 +1070,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {
       "SuccessResponseEnvelope": {
         "type": "object",

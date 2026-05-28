@@ -3,6 +3,7 @@ from database import get_db_connection
 
 procedimento_bp = Blueprint('procedimento', __name__)
 
+# rotas publicas para listar e obter procedimentos (sem autenticação)
 @procedimento_bp.route('/procedimentos', methods=['GET'])
 def list_procedimentos():
     db = get_db_connection()

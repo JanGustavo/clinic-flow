@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from database import get_db_connection
+from services.auth_service import login_requerido, papeis_autorizados
 
 consulta_bp = Blueprint('consulta', __name__)
 
@@ -85,6 +86,8 @@ def validar_consulta(
 # ==========================================================
 
 @consulta_bp.route('/consultas', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def list_consultas():
     db = get_db_connection()
 
@@ -117,6 +120,8 @@ def list_consultas():
 
 
 @consulta_bp.route('/consultas/<int:id>', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def get_consulta(id):
     db = get_db_connection()
 
@@ -156,6 +161,8 @@ def get_consulta(id):
 
 
 @consulta_bp.route('/consultas', methods=['POST'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'PACIENTE')
 def create_consulta():
     db = get_db_connection()
 
@@ -241,6 +248,8 @@ def create_consulta():
 
 
 @consulta_bp.route('/consultas/<int:id>', methods=['PUT'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO')
 def update_consulta(id):
     db = get_db_connection()
 
@@ -314,6 +323,8 @@ def update_consulta(id):
 
 
 @consulta_bp.route('/consultas/<int:id>', methods=['DELETE'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA')
 def delete_consulta(id):
     db = get_db_connection()
 
@@ -349,7 +360,10 @@ def delete_consulta(id):
 # PROCEDIMENTOS DA CONSULTA
 # ==========================================================
 
+# Rotas para listar e adicionar procedimentos vinculados a uma consulta
 @consulta_bp.route('/consultas/<int:id_consulta>/procedimentos', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def list_procedimentos_consulta(id_consulta):
 
     if not entidade_existe("CONSULTA", id_consulta):
@@ -379,6 +393,8 @@ def list_procedimentos_consulta(id_consulta):
 
 
 @consulta_bp.route('/consultas/<int:id_consulta>/procedimentos', methods=['POST'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'ODONTOLOGO')
 def add_procedimento_consulta(id_consulta):
 
     if not entidade_existe("CONSULTA", id_consulta):

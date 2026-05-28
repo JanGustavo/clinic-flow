@@ -1,10 +1,13 @@
 from flask import Blueprint, jsonify, request
 from database import get_db_connection
+from services.auth_service import login_requerido, papeis_autorizados
 from datetime import datetime
 
 anamnese_bp = Blueprint('anamnese', __name__)
 
 @anamnese_bp.route('/anamneses/<int:anamnese_id>', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'ODONTOLOGO', 'PACIENTE')
 def get_anamnese(anamnese_id):
     db = get_db_connection()
     try:
