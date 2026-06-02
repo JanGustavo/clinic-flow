@@ -6,6 +6,7 @@ import 'package:frontend/pages/login.dart';
 import 'package:frontend/pages/recover.dart';
 import 'package:frontend/pages/consultas.dart';
 import 'package:frontend/pages/procedimentos.dart';
+import 'package:frontend/pages/profile.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,19 +19,25 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter App',
+      title: 'ClinicFlow',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      // Página inicial: Login
+      home: const LoginScreen(),
       routes: {
+        // Autenticação
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
         '/forgot': (_) => const ForgotScreen(),
         '/recover': (_) => const RecoverScreen(),
-        '/exames': (_) => const ConsultasScreen(),
+
+        // Navegação principal (após login)
+        '/home': (_) => const HomePage(),
+        '/perfil': (_) => const ProfileScreen(),
+        '/consultas': (_) => const ConsultasScreen(),
         '/procedimentos': (_) => const ProcedimentosScreen(),
       },
     );

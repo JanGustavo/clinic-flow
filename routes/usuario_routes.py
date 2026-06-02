@@ -96,6 +96,27 @@ def validar_usuario(nome, email, senha, senha_repeat, tipo):
 
 # --- ROTAS (BLUEPRINT) ---
 
+@usuario_bp.route('/usuarios/perfil', methods=['GET'])
+@login_requerido
+def get_perfil_usuario():
+    """Obtém o perfil do usuário logado."""
+    user_id = g.usuario_logado['id']
+    
+    db = get_db_connection()
+    try:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, nome, email, tipo FROM USUARIO WHERE id = %s", 
+                (user_id,)
+            )
+            usuario = cursor.fetchone()
+            if usuario:
+                return jsonify(usuario), 200
+            else:
+                return jsonify({"error": "Usuário não encontrado!"}), 404
+    finally:
+        db.close()
+
 @usuario_bp.route('/usuarios', methods=['GET'])
 @login_requerido
 @papeis_autorizados('ADMIN')

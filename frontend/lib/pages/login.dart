@@ -39,11 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     // Endpoint da sua API Flask (Ajuste o IP/URL conforme seu ambiente)
     final url = Uri.parse('http://127.0.0.1:5000/auth/login');
 
-    // Payload idêntico ao solicitado, injetando PACIENTE implicitamente
     final Map<String, dynamic> payload = {
       "email": _emailController.text.trim(),
       "senha": _senhaController.text.trim(),
-      "tipo": "PACIENTE",
     };
 
     try {
@@ -76,6 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
         _mostrarSucesso(mensagem);
+
+        // Redireciona para a página de home após login bem-sucedido
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => HomePage(sessionToken: token)),
           (route) => false,
