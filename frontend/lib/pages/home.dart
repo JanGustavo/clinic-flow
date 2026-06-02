@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/pages/login.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.sessionToken});
@@ -36,6 +37,38 @@ class _HomePageState extends State<HomePage> {
         return 'http://127.0.0.1:5000';
     }
   }
+
+  // Dicas de saúde para o card dinâmico (Saúde Bucal)
+  final List<String> _dicasSaude = [
+    "Escovar os dentes após cada refeição e usar o fio dental diariamente previne cáries e mantém o sorriso perfeito!",
+    "Visite seu dentista a cada 6 meses para realizar uma limpeza preventiva e check-up completo.",
+    "Troque sua escova de dentes a cada 3 meses ou assim que as cerdas começarem a deformar.",
+    "Evite o consumo excessivo de doces e refrigerantes, pois o açúcar acelera a proliferação de bactérias.",
+    "Beba bastante água! A água ajuda na salivação, que protege naturalmente seus dentes de cáries e mau hálito.",
+  ];
+  int _dicaAtualIndex = 0;
+
+  // Campanhas e serviços em destaque
+  final List<Map<String, String>> _campanhas = [
+    {
+      "titulo": "Clareamento a Laser",
+      "subtitulo": "Sorriso radiante e confiante",
+      "desconto": "20% OFF neste mês",
+      "cor": "0xFF00B4D8", // Cyan / Chiclete
+    },
+    {
+      "titulo": "Alinhadores Invisíveis",
+      "subtitulo": "Ortodontia moderna e discreta",
+      "desconto": "Avaliação Cortesia",
+      "cor": "0xFFF50057", // Neon Pink
+    },
+    {
+      "titulo": "Implantes Dentários",
+      "subtitulo": "Sua autoestima de volta",
+      "desconto": "Condições especiais",
+      "cor": "0xFF7209B7", // Deep Purple
+    },
+  ];
 
   @override
   void initState() {
@@ -141,33 +174,40 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    const colorBg = Color(0xFFF8F9FA);
+    const colorPrimary = Color(0xFF00B4D8);
     final errorText = _sessionError ?? 'Sessão indisponível';
 
     return Scaffold(
+      backgroundColor: colorBg,
       drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        backgroundColor: Colors.white,
+        child: Column(
           children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xFF00B4D8)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    _userName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _userRole,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
+            UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(color: colorPrimary),
+              currentAccountPicture: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: SvgPicture.asset(
+                  'assets/branding/sorriso_perfeito.svg',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              accountName: Text(
+                _userName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              accountEmail: Text(
+                _sessaoAtiva ? 'Paciente conectado' : 'Acesse para mais opções',
+                style: const TextStyle(color: Colors.white70),
               ),
             ),
             _buildDrawerItem(
@@ -221,12 +261,13 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: const Color(0xFF00B4D8),
         centerTitle: true,
         title: const Text(
           'Sorriso Perfeito',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: const Color(0xFF00B4D8),
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, size: 28),

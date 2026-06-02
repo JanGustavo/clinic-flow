@@ -39,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/perfil': (_) => const ProfileScreen(),
         '/consultas': (_) => const ConsultasScreen(),
         '/procedimentos': (_) => const ProcedimentosScreen(),
+        '/profile': (_) => const ProfileScreen(),
       },
     );
   }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -57,11 +56,35 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
       }
 
       final decoded = jsonDecode(response.body);
-      if (decoded is! List) {
+      List<dynamic> listaJson = [];
+
+      if (decoded is List) {
+        listaJson = decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        if (decoded['data'] is List) {
+          listaJson = decoded['data'];
+        } else if (decoded['consultas'] is List) {
+          listaJson = decoded['consultas'];
+        } else if (decoded['payload'] is List) {
+          listaJson = decoded['payload'];
+        } else if (decoded['results'] is List) {
+          listaJson = decoded['results'];
+        } else {
+          final listKey = decoded.keys.firstWhere(
+            (k) => decoded[k] is List,
+            orElse: () => '',
+          );
+          if (listKey.isNotEmpty) {
+            listaJson = decoded[listKey];
+          } else {
+            throw Exception('Nenhuma lista de dados de consulta foi encontrada.');
+          }
+        }
+      } else {
         throw Exception('Resposta inesperada do servidor.');
       }
 
-      final consultas = decoded
+      final consultas = listaJson
           .whereType<Map<String, dynamic>>()
           .map(_ConsultaItem.fromJson)
           .toList();
@@ -99,115 +122,320 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
     };
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Consultas marcadas'),
+  void _mostrarContatoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.chat_bubble_rounded, color: Colors.green, size: 24),
+            ),
+            const SizedBox(width: 10),
+            const Text("Falar Conosco", style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          "Deseja falar com nossa recepção via WhatsApp para reagendar ou tirar dúvidas sobre sua consulta?",
+          style: TextStyle(color: Color(0xFF6C757D), fontSize: 14),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Atualizar',
-            onPressed: _fetchConsultas,
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Voltar", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Redirecionando para o WhatsApp...'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Conversar"),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Próximas consultas',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _isLoading
-                    ? 'Buscando suas consultas...'
-                    : 'Você tem ${_consultas.length} consultas agendadas.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withAlpha(20),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.event_available_outlined, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Fique tranquilo: suas consultas são carregadas direto do servidor.',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colorBg = Color(0xFFF8F9FA);
+    const colorPrimary = Color(0xFF00B4D8);
+    const colorSecondary = Color(0xFFF50057);
+    const colorText = Color(0xFF212529);
+    const colorMuted = Color(0xFF6C757D);
+
+    return Scaffold(
+      backgroundColor: colorBg,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        title: const Text(
+          'Consultas Marcadas',
+          style: TextStyle(color: colorText, fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: colorPrimary),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: colorPrimary, size: 26),
+            tooltip: 'Atualizar',
+            onPressed: _fetchConsultas,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF8F9FA), Color(0xFFEFF7FF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Card de Resumo de Consultas
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      colors: [colorPrimary, Color(0xFF0077B6)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorPrimary.withOpacity(0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.event_available_outlined,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Agenda Clínica',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _isLoading
+                                  ? 'Buscando consultas no servidor...'
+                                  : 'Você tem ${_consultas.length} consultas cadastradas.',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Expanded(child: _buildBody(context)),
-            ],
+                const SizedBox(height: 20),
+                Expanded(child: _buildBody(context, colorPrimary, colorSecondary, colorText, colorMuted)),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context) {
+  Widget _buildBody(
+    BuildContext context, 
+    Color colorPrimary, 
+    Color colorSecondary, 
+    Color colorText, 
+    Color colorMuted
+  ) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(color: colorPrimary),
+      );
     }
 
     if (_errorMessage != null) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            _errorMessage!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.redAccent),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              )
+            ]
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline_rounded, color: colorSecondary, size: 50),
+              const SizedBox(height: 14),
+              const Text(
+                'Falha de Carregamento',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.redAccent),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colorMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                onPressed: _fetchConsultas,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Tentar Novamente'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorPrimary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
     if (_consultas.isEmpty) {
-      return const Center(child: Text('Nenhuma consulta encontrada.'));
+      return Center(
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorPrimary.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.calendar_today_rounded, color: colorPrimary, size: 48),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Nenhuma Consulta Ativa',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF212529)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Você não possui nenhuma consulta marcada em sua agenda clínica até o momento.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colorMuted, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _mostrarContatoDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: const Text('Agendar no WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorSecondary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.only(bottom: 16),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 24),
       itemCount: _consultas.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final consulta = _consultas[index];
-        return Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        final dentistInitials = consulta.odontologo.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          elevation: 2,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     CircleAvatar(
                       radius: 26,
-                      backgroundColor: consulta.corStatus.withAlpha(41),
-                      child: Icon(
-                        Icons.calendar_month,
-                        color: consulta.corStatus,
-                        size: 28,
+                      backgroundColor: consulta.corStatus.withOpacity(0.1),
+                      child: Text(
+                        dentistInitials.isNotEmpty ? dentistInitials : 'D',
+                        style: TextStyle(
+                          color: consulta.corStatus,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -217,82 +445,71 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                         children: [
                           Text(
                             consulta.odontologo,
-                            style: const TextStyle(
-                              fontSize: 17,
+                            style: TextStyle(
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
+                              color: colorText,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
                             'Paciente: ${consulta.paciente}',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[700],
+                              fontSize: 12,
+                              color: colorMuted,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Chip(
-                      label: Text(
-                        consulta.status,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: consulta.corStatus.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: consulta.corStatus.withAlpha(36),
-                      labelStyle: TextStyle(color: consulta.corStatus),
+                      child: Text(
+                        consulta.status,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                          color: consulta.corStatus,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule,
-                      size: 18,
-                      color: Colors.blueGrey,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(consulta.dataHora),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.sell, size: 18, color: Colors.blueGrey),
-                    const SizedBox(width: 8),
-                    Text(consulta.valor),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.description_outlined,
-                      size: 18,
-                      color: Colors.blueGrey,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(consulta.motivo)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Responsável: ${consulta.usuarioResponsavel}',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                ),
+                const Divider(height: 1, color: Color(0xFFF1F3F5)),
+                const SizedBox(height: 16),
+                
+                _buildRowInfo(Icons.calendar_today_rounded, "Data & Hora", consulta.dataHora, colorPrimary),
+                const SizedBox(height: 10),
+                _buildRowInfo(Icons.payments_outlined, "Valor do Serviço", consulta.valor, colorPrimary),
+                const SizedBox(height: 10),
+                _buildRowInfo(Icons.assignment_outlined, "Motivo / Descrição", consulta.motivo, colorPrimary),
+                
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: Color(0xFFF1F3F5)),
                 const SizedBox(height: 14),
+                
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text('Detalhes'),
+                    Text(
+                      'Agendado por: ${consulta.usuarioResponsavel}',
+                      style: TextStyle(fontSize: 11.5, color: colorMuted, fontStyle: FontStyle.italic),
                     ),
-                    const SizedBox(width: 10),
-                    FilledButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Confirmar presença'),
+                    OutlinedButton.icon(
+                      onPressed: () => _mostrarContatoDialog(context),
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+                      label: const Text('Mensagem', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorSecondary,
+                        side: BorderSide(color: colorSecondary.withOpacity(0.4)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
                     ),
                   ],
                 ),
@@ -301,6 +518,30 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildRowInfo(IconData icon, String label, String value, Color color) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color.withOpacity(0.7)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF212529), height: 1.3),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: value),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -315,8 +556,8 @@ class _ConsultaItem {
     required this.paciente,
     required this.odontologo,
     required this.usuarioResponsavel,
-  }) : status = _statusFromPrioridade(prioridade),
-       corStatus = _colorFromPrioridade(prioridade);
+  })  : corStatus = _colorFromPrioridade(prioridade),
+        status = _statusFromPrioridade(prioridade);
 
   final int id;
   final String dataHora;
@@ -326,8 +567,8 @@ class _ConsultaItem {
   final String paciente;
   final String odontologo;
   final String usuarioResponsavel;
-  final String status;
   final Color corStatus;
+  final String status;
 
   factory _ConsultaItem.fromJson(Map<String, dynamic> json) {
     final rawDataHora = json['data_hora']?.toString() ?? '';
@@ -361,12 +602,12 @@ class _ConsultaItem {
   static Color _colorFromPrioridade(String prioridade) {
     switch (prioridade.toUpperCase()) {
       case 'ALTA':
-        return Colors.red;
+        return const Color(0xFFF50057); // Rosa Neon
       case 'MÉDIA':
       case 'MEDIA':
         return Colors.orange;
       default:
-        return Colors.green;
+        return const Color(0xFF00B4D8); // Azul Ciano
     }
   }
 
