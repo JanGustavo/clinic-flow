@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend/services/backend_service.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? super.key});
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -39,8 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    // Endpoint da sua API Flask (Ajuste o IP/URL conforme seu ambiente)
-    final url = Uri.parse('http://127.0.0.1:5000/usuarios');
+    final url = Uri.parse('${BackendService.baseUrl}/usuarios/registrar');
 
     // Payload idêntico ao solicitado, injetando PACIENTE implicitamente
     final Map<String, dynamic> payload = {
@@ -48,7 +48,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       "email": _emailController.text.trim(),
       "senha": _senhaController.text.trim(),
       "senha_repeat": _senhaRepeatController.text.trim(),
-      "tipo": "PACIENTE",
     };
 
     try {
@@ -68,7 +67,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             body?['data']?.toString() ??
             'Conta criada com sucesso!';
         _mostrarSucesso(mensagem);
-        // Aqui você pode navegar para a tela de Login ou Home
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/login');
       } else {
         final mensagem =
             body?['error']?.toString() ??

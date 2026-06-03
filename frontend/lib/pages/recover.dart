@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
+import 'package:frontend/services/backend_service.dart';
 
 class RecoverScreen extends StatefulWidget {
-  const RecoverScreen({Key? super.key});
+  const RecoverScreen({super.key});
 
   @override
   State<RecoverScreen> createState() => _RecoverScreenState();
@@ -33,7 +34,7 @@ class _RecoverScreenState extends State<RecoverScreen> {
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('http://127.0.0.1:5000/auth/redefinir-senha');
+    final url = Uri.parse('${BackendService.baseUrl}/auth/redefinir-senha');
     final payload = {
       'senha': _senhaController.text.trim(),
       'senha_repeat': _senhaRepeatController.text.trim(),

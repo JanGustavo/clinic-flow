@@ -1,9 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/pages/login.dart';
+import 'package:frontend/services/backend_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.sessionToken});
@@ -15,21 +14,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static String get _backendBaseUrl {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:5000';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return 'http://127.0.0.1:5000';
-      default:
-        return 'http://127.0.0.1:5000';
-    }
-  }
-
-  final _formKey = GlobalKey<FormState>();
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
@@ -37,9 +21,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Map<String, dynamic>? _profileData;
   bool _isLoading = true;
-  bool _isSaving = false;
   String? _errorMessage;
   String? _sessionToken;
+
+  // Controle de edição por campo
+  bool _editingNome = false;
+  bool _editingEmail = false;
+  bool _editingSenha = false;
+  bool _savingNome = false;
+  bool _savingEmail = false;
+  bool _savingSenha = false;
 
   @override
   void initState() {
@@ -65,8 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       if (_sessionToken == null || _sessionToken!.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        _sessionToken = prefs.getString('session_token');
+        _sessionToken = await BackendService.readToken();
       }
 
       if (_sessionToken == null || _sessionToken!.isEmpty) {
@@ -77,7 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final uri = Uri.parse('$_backendBaseUrl/usuarios/perfil');
+      final uri = Uri.parse('${BackendService.baseUrl}/usuarios/perfil');
       final response = await http.get(
         uri,
         headers: {
@@ -116,8 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _salvarPerfil() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _salvarCampo(String campo, String valor) async {
     if (_profileData == null || _profileData!['id'] == null) {
       _mostrarMensagem('Dados do usuário não estão disponíveis.', false);
       return;
@@ -125,61 +114,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final id = _profileData!['id'];
     final tipo = _profileData!['tipo']?.toString() ?? 'PACIENTE';
-    final nome = _nomeController.text.trim();
-    final email = _emailController.text.trim();
-    final senha = _senhaController.text.trim();
-    final senhaRepeat = _senhaRepeatController.text.trim();
 
-    if (senha.isNotEmpty && senha != senhaRepeat) {
-      _mostrarMensagem('As senhas não coincidem.', false);
-      return;
-    }
-
-    setState(() => _isSaving = true);
+    setState(() {
+      if (campo == 'nome') _savingNome = true;
+      if (campo == 'email') _savingEmail = true;
+      if (campo == 'senha') _savingSenha = true;
+    });
 
     try {
-      final uri = Uri.parse('$_backendBaseUrl/usuarios/$id');
-      final body = {
-        'nome': nome,
-        'email': email,
+      final uri = Uri.parse('${BackendService.baseUrl}/usuarios/$id');
+      final Map<String, dynamic> body = {
+        'nome': _nomeController.text.trim(),
+        'email': _emailController.text.trim(),
         'tipo': tipo,
-        if (senha.isNotEmpty) 'senha': senha,
-        if (senha.isNotEmpty) 'senha_repeat': senhaRepeat,
       };
 
+      if (campo == 'senha' && valor.isNotEmpty) {
+        body['senha'] = _senhaController.text.trim();
+        body['senha_repeat'] = _senhaRepeatController.text.trim();
+      }
+
+      if (_sessionToken == null || _sessionToken!.isEmpty) {
+        _sessionToken = await BackendService.readToken();
+      }
+      final headers = await BackendService.authHeaders(_sessionToken);
       final response = await http.put(
         uri,
-        headers: {
-          'Authorization': 'Bearer $_sessionToken',
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: jsonEncode(body),
       );
 
       if (!mounted) return;
       if (response.statusCode == 200) {
-        _mostrarMensagem('Dados atualizados com sucesso.', true);
-        await _carregarPerfil();
+        _mostrarMensagem('$campo atualizado com sucesso!', true);
+        setState(() {
+          _editingNome = false;
+          _editingEmail = false;
+          _editingSenha = false;
+          if (campo == 'senha') {
+            _senhaController.clear();
+            _senhaRepeatController.clear();
+          }
+        });
       } else {
         final data = jsonDecode(response.body);
         final error =
-            data['error'] ?? data['message'] ?? 'Erro ao salvar perfil.';
+            data['error'] ?? data['message'] ?? 'Erro ao salvar $campo.';
         _mostrarMensagem(error.toString(), false);
       }
     } catch (e) {
       if (!mounted) return;
-      _mostrarMensagem('Falha ao atualizar perfil: $e', false);
-      debugPrint('Profile update error: $e');
+      _mostrarMensagem('Falha ao atualizar $campo: $e', false);
+      debugPrint('Update $campo error: $e');
     } finally {
       if (mounted) {
-        setState(() => _isSaving = false);
+        setState(() {
+          _savingNome = false;
+          _savingEmail = false;
+          _savingSenha = false;
+        });
       }
     }
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('session_token');
+    await BackendService.clearToken();
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -284,125 +283,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Atualize seu cadastro sempre que necessário.',
+                    'Clique no ícone de edição para atualizar seus dados.',
                     style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                   ),
                   const SizedBox(height: 20),
+                  // Informações estáticas
                   Card(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     elevation: 2,
                     child: Padding(
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildInfoRow(
-                            label: 'Nome',
-                            value:
-                                _profileData?['nome']?.toString() ??
-                                'Não informado',
-                            icon: Icons.person,
-                          ),
-                          const SizedBox(height: 12),
                           _buildInfoRow(
                             label: 'Tipo de conta',
                             value:
                                 _profileData?['tipo']?.toString() ?? 'Paciente',
                             icon: Icons.verified_user,
                           ),
+                          const Divider(height: 24),
+                          _buildInfoRow(
+                            label: 'ID do usuário',
+                            value: _profileData?['id']?.toString() ?? '—',
+                            icon: Icons.badge,
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildField(
-                          label: 'Nome completo',
-                          controller: _nomeController,
-                          icon: Icons.person,
-                          validator: (value) {
-                            if (value == null || value.trim().length < 3) {
-                              return 'Informe um nome válido.';
-                            }
-                            return null;
-                          },
+                  const SizedBox(height: 24),
+                  // Campos editáveis
+                  _buildEditableField(
+                    label: 'Nome completo',
+                    icon: Icons.person,
+                    isEditing: _editingNome,
+                    isSaving: _savingNome,
+                    controller: _nomeController,
+                    onEdit: () => setState(() => _editingNome = !_editingNome),
+                    onSave: () => _salvarCampo('nome', _nomeController.text),
+                    onCancel: () {
+                      setState(() => _editingNome = false);
+                      _nomeController.text =
+                          _profileData?['nome']?.toString() ?? '';
+                    },
+                    colorPrimary: colorPrimary,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildEditableField(
+                    label: 'E-mail',
+                    icon: Icons.email,
+                    isEditing: _editingEmail,
+                    isSaving: _savingEmail,
+                    controller: _emailController,
+                    onEdit: () =>
+                        setState(() => _editingEmail = !_editingEmail),
+                    onSave: () => _salvarCampo('email', _emailController.text),
+                    onCancel: () {
+                      setState(() => _editingEmail = false);
+                      _emailController.text =
+                          _profileData?['email']?.toString() ?? '';
+                    },
+                    colorPrimary: colorPrimary,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildPasswordField(
+                    isEditing: _editingSenha,
+                    isSaving: _savingSenha,
+                    onEdit: () =>
+                        setState(() => _editingSenha = !_editingSenha),
+                    onSave: () => _salvarCampo('senha', _senhaController.text),
+                    onCancel: () {
+                      setState(() => _editingSenha = false);
+                      _senhaController.clear();
+                      _senhaRepeatController.clear();
+                    },
+                    colorPrimary: colorPrimary,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.logout, color: Color(0xFF212529)),
+                      label: const Text(
+                        'Sair',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF212529),
                         ),
-                        const SizedBox(height: 14),
-                        _buildField(
-                          label: 'E-mail',
-                          controller: _emailController,
-                          icon: Icons.email,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || !value.contains('@')) {
-                              return 'E-mail inválido.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        _buildField(
-                          label: 'Nova senha',
-                          controller: _senhaController,
-                          icon: Icons.lock,
-                          obscureText: true,
-                        ),
-                        const SizedBox(height: 14),
-                        _buildField(
-                          label: 'Confirmar senha',
-                          controller: _senhaRepeatController,
-                          icon: Icons.lock_outline,
-                          obscureText: true,
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: _isSaving ? null : _salvarPerfil,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: colorPrimary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: _isSaving
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : const Text(
-                                    'Salvar alterações',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Center(
-                          child: TextButton.icon(
-                            icon: const Icon(
-                              Icons.logout,
-                              color: Color(0xFF212529),
-                            ),
-                            label: const Text(
-                              'Sair',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF212529),
-                              ),
-                            ),
-                            onPressed: _logout,
-                          ),
-                        ),
-                      ],
+                      ),
+                      onPressed: _logout,
                     ),
                   ),
                 ],
@@ -411,26 +381,230 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildField({
+  Widget _buildEditableField({
     required String label,
-    required TextEditingController controller,
     required IconData icon,
-    bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
+    required bool isEditing,
+    required bool isSaving,
+    required TextEditingController controller,
+    required VoidCallback onEdit,
+    required VoidCallback onSave,
+    required VoidCallback onCancel,
+    required Color colorPrimary,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-        filled: true,
-        fillColor: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isEditing ? colorPrimary : Colors.grey[300]!,
+          width: 2,
+        ),
       ),
-      validator: validator,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: colorPrimary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6C757D),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (!isEditing)
+                        Text(
+                          controller.text,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!isEditing)
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Color(0xFF00B4D8)),
+                    onPressed: onEdit,
+                    tooltip: 'Editar $label',
+                  ),
+              ],
+            ),
+            if (isEditing) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isSaving ? null : onCancel,
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: isSaving ? null : onSave,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorPrimary,
+                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Text('Salvar'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required bool isEditing,
+    required bool isSaving,
+    required VoidCallback onEdit,
+    required VoidCallback onSave,
+    required VoidCallback onCancel,
+    required Color colorPrimary,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isEditing ? colorPrimary : Colors.grey[300]!,
+          width: 2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lock, color: colorPrimary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Alterar senha',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6C757D),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (!isEditing)
+                        const Text(
+                          '••••••••',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!isEditing)
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Color(0xFF00B4D8)),
+                    onPressed: onEdit,
+                    tooltip: 'Alterar senha',
+                  ),
+              ],
+            ),
+            if (isEditing) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _senhaController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Nova senha',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _senhaRepeatController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Confirmar senha',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isSaving ? null : onCancel,
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: isSaving ? null : onSave,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorPrimary,
+                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Text('Salvar'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

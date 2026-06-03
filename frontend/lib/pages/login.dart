@@ -1,13 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:frontend/pages/home.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/services/backend_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? super.key});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -36,8 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // Endpoint da sua API Flask (Ajuste o IP/URL conforme seu ambiente)
-    final url = Uri.parse('http://127.0.0.1:5000/auth/login');
+    final url = Uri.parse('${BackendService.baseUrl}/auth/login');
 
     final Map<String, dynamic> payload = {
       "email": _emailController.text.trim(),
@@ -55,35 +53,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      final sucesso =
-          response.statusCode == 200 &&
-          (body?['success'] == true || body?['data'] != null);
+      if (response.statusCode == 200 && body != null) {
+        final rawData = body['data'];
+        final data = rawData is Map<String, dynamic> ? rawData : null;
+        final mensagem =
+            body['message']?.toString() ??
+            data?['message']?.toString() ??
+            'Login realizado com sucesso!';
+        final token = body['token']?.toString() ?? data?['token']?.toString();
 
-      if (sucesso) {
-        final data = body?['data'];
-        final mensagem = data is Map<String, dynamic>
-            ? (data['message']?.toString() ?? 'Login realizado com sucesso!')
-            : 'Login realizado com sucesso!';
-        final token = data is Map<String, dynamic>
-            ? data['token']?.toString()
-            : null;
-
-        if (token != null && token.isNotEmpty) {
-          await _salvarToken(token);
+        if (token == null || token.isEmpty) {
+          _mostrarErro('Falha ao receber o token de sessão.');
+          return;
         }
+
+        await BackendService.saveToken(token);
 
         if (!mounted) return;
         _mostrarSucesso(mensagem);
 
-        // Redireciona para a página de home após login bem-sucedido
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomePage(sessionToken: token)),
-          (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
+        final rawData = body?['data'];
+        final data = rawData is Map<String, dynamic> ? rawData : null;
         final mensagem =
             body?['error']?.toString() ??
             body?['message']?.toString() ??
+            data?['error']?.toString() ??
+            data?['message']?.toString() ??
             'Falha ao fazer login.';
         _mostrarErro(mensagem);
       }
@@ -106,15 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (_) {}
     return null;
-  }
-
-  Future<void> _salvarToken(String token) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('session_token', token);
-    } catch (e) {
-      debugPrint('Session token not persisted: $e');
-    }
   }
 
   void _mostrarSucesso(String mensagem) {

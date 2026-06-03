@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/pages/procedimentos_recomendados.dart';
+import 'package:frontend/services/backend_service.dart';
 
 class ConsultasScreen extends StatefulWidget {
   const ConsultasScreen({super.key});
@@ -12,25 +13,10 @@ class ConsultasScreen extends StatefulWidget {
 }
 
 class _ConsultasScreenState extends State<ConsultasScreen> {
-  static String get _backendBaseUrl {
-    if (kIsWeb) return 'http://127.0.0.1:5000';
-
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:5000';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return 'http://127.0.0.1:5000';
-      default:
-        return 'http://127.0.0.1:5000';
-    }
-  }
-
   final List<_ConsultaItem> _consultas = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isSubmittingConsulta = false;
 
   @override
   void initState() {
@@ -44,7 +30,7 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
       _errorMessage = null;
     });
 
-    final uri = Uri.parse('$_backendBaseUrl/consultas');
+    final uri = Uri.parse('${BackendService.baseUrl}/consultas');
 
     try {
       final headers = await _getAuthHeaders();
@@ -77,7 +63,9 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
           if (listKey.isNotEmpty) {
             listaJson = decoded[listKey];
           } else {
-            throw Exception('Nenhuma lista de dados de consulta foi encontrada.');
+            throw Exception(
+              'Nenhuma lista de dados de consulta foi encontrada.',
+            );
           }
         }
       } else {
@@ -106,70 +94,331 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
     }
   }
 
+  int? _currentUserId;
+
   Future<Map<String, String>> _getAuthHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('session_token');
-
-    if (token == null || token.isEmpty) {
-      throw Exception(
-        'Token de autenticação não encontrado. Faça login novamente.',
-      );
-    }
-
-    return {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    };
+    return await BackendService.authHeaders();
   }
 
-  void _mostrarContatoDialog(BuildContext context) {
-    showDialog(
+  Future<int?> _getCurrentUserId() async {
+    if (_currentUserId != null) {
+      return _currentUserId;
+    }
+
+    try {
+      final uri = Uri.parse('${BackendService.baseUrl}/usuarios/perfil');
+      final headers = await BackendService.authHeaders();
+      final response = await http.get(uri, headers: headers);
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final decoded = jsonDecode(response.body);
+      final data =
+          decoded is Map<String, dynamic> &&
+              decoded['data'] is Map<String, dynamic>
+          ? decoded['data'] as Map<String, dynamic>
+          : decoded as Map<String, dynamic>;
+
+      final id = data['id'];
+      if (id is int) {
+        _currentUserId = id;
+      } else if (id is String) {
+        _currentUserId = int.tryParse(id);
+      }
+      return _currentUserId;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _showSolicitarConsultaDialog() async {
+    final idPacienteController = TextEditingController();
+    final idOdontologoController = TextEditingController();
+    final dataHoraController = TextEditingController();
+    final motivoController = TextEditingController();
+    final valorController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    String prioridade = 'MEDIA';
+    String? localError;
+
+    await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F5E9),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.chat_bubble_rounded, color: Colors.green, size: 24),
-            ),
-            const SizedBox(width: 10),
-            const Text("Falar Conosco", style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Text(
-          "Deseja falar com nossa recepção via WhatsApp para reagendar ou tirar dúvidas sobre sua consulta?",
-          style: TextStyle(color: Color(0xFF6C757D), fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Voltar", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Redirecionando para o WhatsApp...'),
-                  backgroundColor: Colors.green,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Solicitar Consulta'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: idPacienteController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'ID do Paciente',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Informe o ID do paciente.';
+                          }
+                          if (int.tryParse(value.trim()) == null) {
+                            return 'ID do paciente deve ser numérico.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: idOdontologoController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'ID do Odontólogo',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Informe o ID do odontólogo.';
+                          }
+                          if (int.tryParse(value.trim()) == null) {
+                            return 'ID do odontólogo deve ser numérico.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: dataHoraController,
+                        decoration: const InputDecoration(
+                          labelText: 'Data e hora',
+                          hintText: 'YYYY-MM-DD HH:MM:SS',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Informe a data e hora da consulta.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: motivoController,
+                        decoration: const InputDecoration(
+                          labelText: 'Motivo da consulta',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Informe o motivo da consulta.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: valorController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Valor',
+                          hintText: 'Ex: 99.90',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Informe o valor do serviço.';
+                          }
+                          if (double.tryParse(
+                                value.trim().replaceAll(',', '.'),
+                              ) ==
+                              null) {
+                            return 'Valor inválido.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: prioridade,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'BAIXA',
+                            child: Text('Baixa'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'MEDIA',
+                            child: Text('Média'),
+                          ),
+                          DropdownMenuItem(value: 'ALTA', child: Text('Alta')),
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Prioridade',
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              prioridade = value;
+                            });
+                          }
+                        },
+                      ),
+                      if (localError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          localError!,
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text("Conversar"),
-          ),
-        ],
-      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: _isSubmittingConsulta
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) {
+                            return;
+                          }
+
+                          final idPaciente = int.tryParse(
+                            idPacienteController.text.trim(),
+                          );
+                          final idOdontologo = int.tryParse(
+                            idOdontologoController.text.trim(),
+                          );
+                          final dataHora = dataHoraController.text.trim();
+                          final motivo = motivoController.text.trim();
+                          final valor = valorController.text.trim().replaceAll(
+                            ',',
+                            '.',
+                          );
+
+                          if (idPaciente == null || idOdontologo == null) {
+                            setState(() {
+                              localError =
+                                  'ID do paciente e do odontólogo devem ser numéricos.';
+                            });
+                            return;
+                          }
+
+                          final success = await _solicitarConsulta(
+                            idPaciente: idPaciente,
+                            idOdontologo: idOdontologo,
+                            dataHora: dataHora,
+                            motivo: motivo,
+                            valor: valor,
+                            prioridade: prioridade,
+                          );
+
+                          if (success) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                  child: const Text('Enviar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  Future<bool> _solicitarConsulta({
+    required int idPaciente,
+    required int idOdontologo,
+    required String dataHora,
+    required String motivo,
+    required String valor,
+    required String prioridade,
+  }) async {
+    setState(() => _isSubmittingConsulta = true);
+
+    try {
+      final idUsuarioResponsavel = await _getCurrentUserId();
+      if (idUsuarioResponsavel == null) {
+        if (!mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível identificar o usuário responsável.',
+            ),
+          ),
+        );
+        return false;
+      }
+
+      final uri = Uri.parse('${BackendService.baseUrl}/consultas');
+      final headers = await _getAuthHeaders();
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode({
+          'id_paciente': idPaciente,
+          'id_odontologo': idOdontologo,
+          'id_usuario_responsavel': idUsuarioResponsavel,
+          'data_hora': dataHora,
+          'motivo': motivo,
+          'valor': valor,
+          'prioridade': prioridade,
+        }),
+      );
+
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 201) {
+        final message = decoded is Map<String, dynamic>
+            ? decoded['message']?.toString() ??
+                  'Consulta solicitada com sucesso.'
+            : 'Consulta solicitada com sucesso.';
+        if (!mounted) return false;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+        await _fetchConsultas();
+        return true;
+      }
+
+      String errorMsg = 'Falha ao solicitar consulta.';
+      if (decoded is Map<String, dynamic>) {
+        errorMsg =
+            decoded['error']?.toString() ??
+            decoded['message']?.toString() ??
+            'Falha ao solicitar consulta.';
+        if (decoded['data'] is Map<String, dynamic>) {
+          final dataErr =
+              decoded['data']['error']?.toString() ??
+              decoded['data']['message']?.toString();
+          if (dataErr != null) {
+            errorMsg = dataErr;
+          }
+        }
+      }
+
+      if (!mounted) return false;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMsg)));
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao solicitar consulta: $e')));
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingConsulta = false);
+      }
+    }
   }
 
   @override
@@ -187,21 +436,37 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
         backgroundColor: Colors.transparent,
         title: const Text(
           'Consultas Marcadas',
-          style: TextStyle(color: colorText, fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(
+            color: colorText,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: colorPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: colorPrimary,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: colorPrimary, size: 26),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: colorPrimary,
+              size: 26,
+            ),
             tooltip: 'Atualizar',
             onPressed: _fetchConsultas,
           ),
           const SizedBox(width: 8),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.add_sharp),
+        label: const Text('Solicitar Consulta'),
+        onPressed: _showSolicitarConsultaDialog,
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -213,7 +478,10 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 12.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -257,14 +525,21 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                           children: [
                             const Text(
                               'Agenda Clínica',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               _isLoading
                                   ? 'Buscando consultas no servidor...'
                                   : 'Você tem ${_consultas.length} consultas cadastradas.',
-                              style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ],
                         ),
@@ -273,7 +548,15 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Expanded(child: _buildBody(context, colorPrimary, colorSecondary, colorText, colorMuted)),
+                Expanded(
+                  child: _buildBody(
+                    context,
+                    colorPrimary,
+                    colorSecondary,
+                    colorText,
+                    colorMuted,
+                  ),
+                ),
               ],
             ),
           ),
@@ -283,16 +566,14 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
   }
 
   Widget _buildBody(
-    BuildContext context, 
-    Color colorPrimary, 
-    Color colorSecondary, 
-    Color colorText, 
-    Color colorMuted
+    BuildContext context,
+    Color colorPrimary,
+    Color colorSecondary,
+    Color colorText,
+    Color colorMuted,
   ) {
     if (_isLoading) {
-      return Center(
-        child: CircularProgressIndicator(color: colorPrimary),
-      );
+      return Center(child: CircularProgressIndicator(color: colorPrimary));
     }
 
     if (_errorMessage != null) {
@@ -307,17 +588,25 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                 color: Colors.black.withOpacity(0.02),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
-              )
-            ]
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline_rounded, color: colorSecondary, size: 50),
+              Icon(
+                Icons.error_outline_rounded,
+                color: colorSecondary,
+                size: 50,
+              ),
               const SizedBox(height: 14),
               const Text(
                 'Falha de Carregamento',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.redAccent),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.redAccent,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -333,7 +622,9 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorPrimary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],
@@ -366,30 +657,26 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                   color: colorPrimary.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.calendar_today_rounded, color: colorPrimary, size: 48),
+                child: Icon(
+                  Icons.calendar_today_rounded,
+                  color: colorPrimary,
+                  size: 48,
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
-                'Nenhuma Consulta Ativa',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF212529)),
+                'Nenhuma Consulta Agendada',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: Color(0xFF212529),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Você não possui nenhuma consulta marcada em sua agenda clínica até o momento.',
+                'Você não possui consultas marcadas em sua agenda clínica no momento.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: colorMuted, fontSize: 13, height: 1.4),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => _mostrarContatoDialog(context),
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: const Text('Agendar no WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorSecondary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
               ),
             ],
           ),
@@ -404,7 +691,13 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final consulta = _consultas[index];
-        final dentistInitials = consulta.odontologo.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+        final dentistInitials = consulta.odontologo
+            .trim()
+            .split(' ')
+            .map((e) => e.isNotEmpty ? e[0] : '')
+            .take(2)
+            .join()
+            .toUpperCase();
 
         return Container(
           decoration: BoxDecoration(
@@ -454,16 +747,16 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                           const SizedBox(height: 3),
                           Text(
                             'Paciente: ${consulta.paciente}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorMuted,
-                            ),
+                            style: TextStyle(fontSize: 12, color: colorMuted),
                           ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: consulta.corStatus.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
@@ -482,36 +775,39 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                 const SizedBox(height: 16),
                 const Divider(height: 1, color: Color(0xFFF1F3F5)),
                 const SizedBox(height: 16),
-                
-                _buildRowInfo(Icons.calendar_today_rounded, "Data & Hora", consulta.dataHora, colorPrimary),
+
+                _buildRowInfo(
+                  Icons.calendar_today_rounded,
+                  "Data & Hora",
+                  consulta.dataHora,
+                  colorPrimary,
+                ),
                 const SizedBox(height: 10),
-                _buildRowInfo(Icons.payments_outlined, "Valor do Serviço", consulta.valor, colorPrimary),
+                _buildRowInfo(
+                  Icons.payments_outlined,
+                  "Valor do Serviço",
+                  consulta.valor,
+                  colorPrimary,
+                ),
                 const SizedBox(height: 10),
-                _buildRowInfo(Icons.assignment_outlined, "Motivo / Descrição", consulta.motivo, colorPrimary),
-                
+                _buildRowInfo(
+                  Icons.assignment_outlined,
+                  "Motivo / Descrição",
+                  consulta.motivo,
+                  colorPrimary,
+                ),
+
                 const SizedBox(height: 16),
                 const Divider(height: 1, color: Color(0xFFF1F3F5)),
                 const SizedBox(height: 14),
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Agendado por: ${consulta.usuarioResponsavel}',
-                      style: TextStyle(fontSize: 11.5, color: colorMuted, fontStyle: FontStyle.italic),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _mostrarContatoDialog(context),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
-                      label: const Text('Mensagem', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: colorSecondary,
-                        side: BorderSide(color: colorSecondary.withOpacity(0.4)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                    ),
-                  ],
+
+                Text(
+                  'Agendado por: ${consulta.usuarioResponsavel}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: colorMuted,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ],
             ),
@@ -530,7 +826,11 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
         Expanded(
           child: RichText(
             text: TextSpan(
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF212529), height: 1.3),
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF212529),
+                height: 1.3,
+              ),
               children: [
                 TextSpan(
                   text: '$label: ',
@@ -556,8 +856,8 @@ class _ConsultaItem {
     required this.paciente,
     required this.odontologo,
     required this.usuarioResponsavel,
-  })  : corStatus = _colorFromPrioridade(prioridade),
-        status = _statusFromPrioridade(prioridade);
+  }) : corStatus = _colorFromPrioridade(prioridade),
+       status = _statusFromPrioridade(prioridade);
 
   final int id;
   final String dataHora;

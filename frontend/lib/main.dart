@@ -6,6 +6,7 @@ import 'package:frontend/pages/login.dart';
 import 'package:frontend/pages/recover.dart';
 import 'package:frontend/pages/consultas.dart';
 import 'package:frontend/pages/procedimentos.dart';
+import 'package:frontend/pages/procedimentos_recomendados.dart';
 import 'package:frontend/pages/profile.dart';
 
 void main() {
@@ -39,6 +40,8 @@ class MyApp extends StatelessWidget {
         '/perfil': (_) => const ProfileScreen(),
         '/consultas': (_) => const ConsultasScreen(),
         '/procedimentos': (_) => const ProcedimentosScreen(),
+        '/procedimentos_recomendados': (_) =>
+            const ProcedimentosRecomendadosScreen(),
         '/profile': (_) => const ProfileScreen(),
       },
     );

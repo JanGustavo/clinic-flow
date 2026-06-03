@@ -149,11 +149,47 @@ def get_usuario(id):
     finally:
         db.close()
 
+@usuario_bp.route('/usuarios/registrar', methods=['POST'])
+def registrar_paciente():
+    """Permite que novos pacientes se registrem sem autenticação."""
+    db = get_db_connection()
+    try:
+        dados_usuario = request.get_json()
+        if not dados_usuario:
+            return jsonify({"error": "Dados de usuário ausentes!"}), 400
+
+        nome = dados_usuario.get('nome')
+        email = dados_usuario.get('email')
+        senha = dados_usuario.get('senha')
+        senha_repeat = dados_usuario.get('senha_repeat')
+        tipo = "PACIENTE"  # Força PACIENTE para registro público
+
+        # 1. Validação de formato
+        validacao = validar_usuario(nome, email, senha, senha_repeat, tipo)
+        if validacao is not True:
+            return jsonify({"error": validacao}), 400
+
+        # 2. Verificação de unicidade
+        if email_existe(email):
+            return jsonify({"error": "Email já cadastrado"}), 409
+
+        # 3. Hash de senha e persistência
+        senha_hash = bcrypt.generate_password_hash(senha).decode('utf-8')
+        with db.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO USUARIO (nome, email, senha, tipo) VALUES (%s, %s, %s, %s)", 
+                (nome, email, senha_hash, tipo)
+            )
+            db.commit()
+            return jsonify({"message": "Paciente registrado com sucesso!"}), 201
+    finally:
+        db.close()
+
 @usuario_bp.route('/usuarios', methods=['POST'])
 @login_requerido
 @papeis_autorizados('ADMIN')
 def create_usuario():
-    """Cria um novo usuário no sistema."""
+    """Cria um novo usuário no sistema (apenas ADMIN)."""
     db = get_db_connection()
     try:
         dados_usuario = request.get_json()

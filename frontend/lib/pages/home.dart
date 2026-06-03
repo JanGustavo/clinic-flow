@@ -1,10 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/pages/login.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/services/backend_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class HomePage extends StatefulWidget {
@@ -24,52 +23,6 @@ class _HomePageState extends State<HomePage> {
   String? _profileError;
   Map<String, dynamic>? _profileData;
 
-  static String get _backendBaseUrl {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:5000';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return 'http://127.0.0.1:5000';
-      default:
-        return 'http://127.0.0.1:5000';
-    }
-  }
-
-  // Dicas de saúde para o card dinâmico (Saúde Bucal)
-  final List<String> _dicasSaude = [
-    "Escovar os dentes após cada refeição e usar o fio dental diariamente previne cáries e mantém o sorriso perfeito!",
-    "Visite seu dentista a cada 6 meses para realizar uma limpeza preventiva e check-up completo.",
-    "Troque sua escova de dentes a cada 3 meses ou assim que as cerdas começarem a deformar.",
-    "Evite o consumo excessivo de doces e refrigerantes, pois o açúcar acelera a proliferação de bactérias.",
-    "Beba bastante água! A água ajuda na salivação, que protege naturalmente seus dentes de cáries e mau hálito.",
-  ];
-  int _dicaAtualIndex = 0;
-
-  // Campanhas e serviços em destaque
-  final List<Map<String, String>> _campanhas = [
-    {
-      "titulo": "Clareamento a Laser",
-      "subtitulo": "Sorriso radiante e confiante",
-      "desconto": "20% OFF neste mês",
-      "cor": "0xFF00B4D8", // Cyan / Chiclete
-    },
-    {
-      "titulo": "Alinhadores Invisíveis",
-      "subtitulo": "Ortodontia moderna e discreta",
-      "desconto": "Avaliação Cortesia",
-      "cor": "0xFFF50057", // Neon Pink
-    },
-    {
-      "titulo": "Implantes Dentários",
-      "subtitulo": "Sua autoestima de volta",
-      "desconto": "Condições especiais",
-      "cor": "0xFF7209B7", // Deep Purple
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -84,21 +37,31 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _carregarSessao() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('session_token');
+      final token = await BackendService.readToken();
       if (!mounted) return;
+
+      if (token == null || token.isEmpty) {
+        setState(() {
+          _sessionToken = token;
+          _sessionError = 'Sessão não encontrada. Faça login novamente.';
+          _isLoadingSession = false;
+          _isLoadingProfile = false;
+        });
+        return;
+      }
+
       setState(() {
         _sessionToken = token;
         _isLoadingSession = false;
       });
-      if (token != null && token.isNotEmpty) {
-        await _carregarPerfil();
-      }
+
+      await _carregarPerfil();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _sessionError = 'Sessão indisponível';
         _isLoadingSession = false;
+        _isLoadingProfile = false;
       });
       debugPrint('Session load failed: $e');
     }
@@ -120,7 +83,7 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      final uri = Uri.parse('$_backendBaseUrl/usuarios/perfil');
+      final uri = Uri.parse('${BackendService.baseUrl}/usuarios/perfil');
       final response = await http.get(
         uri,
         headers: {
@@ -162,8 +125,7 @@ class _HomePageState extends State<HomePage> {
   bool hasRole(String role) => _userRole == role.toUpperCase();
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('session_token');
+    await BackendService.clearToken();
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -413,6 +375,18 @@ class _HomePageState extends State<HomePage> {
           subtitle: 'Conheça os procedimentos disponíveis',
           icon: Icons.healing,
           onTap: () => Navigator.of(context).pushNamed('/procedimentos'),
+        ),
+      );
+    }
+
+    if (hasRole('PACIENTE')) {
+      actions.add(
+        _buildFeatureCard(
+          title: 'Procedimentos Recomendados',
+          subtitle: 'Veja os procedimentos do seu último atendimento',
+          icon: Icons.medical_services,
+          onTap: () =>
+              Navigator.of(context).pushNamed('/procedimentos_recomendados'),
         ),
       );
     }

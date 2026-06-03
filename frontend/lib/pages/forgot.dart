@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
+import 'package:frontend/services/backend_service.dart';
 
 class ForgotScreen extends StatefulWidget {
-  const ForgotScreen({Key? super.key});
+  const ForgotScreen({super.key});
 
   @override
   State<ForgotScreen> createState() => _ForgotScreenState();
@@ -28,7 +29,7 @@ class _ForgotScreenState extends State<ForgotScreen> {
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('http://127.0.0.1:5000/auth/forgot');
+    final url = Uri.parse('${BackendService.baseUrl}/auth/forgot');
     final payload = {'email': _emailController.text.trim()};
 
     try {
