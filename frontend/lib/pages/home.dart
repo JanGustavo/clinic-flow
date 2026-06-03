@@ -168,7 +168,9 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               accountEmail: Text(
-                _sessaoAtiva ? 'Paciente conectado' : 'Acesse para mais opções',
+                _sessaoAtiva
+                    ? (_profileData?['email']?.toString() ?? '${_roleLabel()} conectado')
+                    : 'Acesse para mais opções',
                 style: const TextStyle(color: Colors.white70),
               ),
             ),
@@ -193,15 +195,14 @@ class _HomePageState extends State<HomePage> {
                 Navigator.of(context).pushNamed('/consultas');
               },
             ),
-            if (!hasRole('PACIENTE'))
-              _buildDrawerItem(
-                icon: Icons.healing_outlined,
-                label: 'Procedimentos',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pushNamed('/procedimentos');
-                },
-              ),
+            _buildDrawerItem(
+              icon: Icons.attach_money_outlined,
+              label: 'Tabela de Preços',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushNamed('/procedimentos');
+              },
+            ),
             if (hasRole('ADMIN'))
               _buildDrawerItem(
                 icon: Icons.group_outlined,
@@ -225,10 +226,15 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFF00B4D8),
+        iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
         title: const Text(
           'Sorriso Perfeito',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
         ),
         leading: Builder(
           builder: (context) => IconButton(
@@ -286,49 +292,160 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildDashboard(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Olá, $_userName',
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Bem-vindo ao painel do ${_roleLabel()}.',
-            style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildChip('Perfil', Icons.person, const Color(0xFF00B4D8)),
-              _buildChip(
-                _userRole,
-                Icons.verified_user,
-                const Color(0xFF2196F3),
+          // Welcome Banner / Hero card with linear gradient and shadow
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0077B6), Color(0xFF00B4D8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              _buildChip(
-                _sessaoAtiva ? 'Sessão ativa' : 'Sessão pendente',
-                _sessaoAtiva ? Icons.lock_open : Icons.lock,
-                _sessaoAtiva ? Colors.green : Colors.grey,
-              ),
-            ],
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0077B6).withOpacity(0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      child: Icon(
+                        hasRole('ODONTOLOGO')
+                            ? Icons.medical_services_outlined
+                            : (hasRole('ADMIN')
+                                ? Icons.admin_panel_settings_outlined
+                                : (hasRole('RECEPCIONISTA')
+                                    ? Icons.badge_outlined
+                                    : Icons.person_outline)),
+                        size: 28,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Olá, $_userName',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Painel do ${_roleLabel()}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white24, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _buildModernBadge(
+                      icon: Icons.verified_user,
+                      label: _userRole,
+                      color: Colors.white.withOpacity(0.15),
+                    ),
+                    const SizedBox(width: 10),
+                    _buildModernBadge(
+                      icon: _sessaoAtiva ? Icons.lock_open : Icons.lock,
+                      label: _sessaoAtiva ? 'Sessão ativa' : 'Pendente',
+                      color: _sessaoAtiva
+                          ? Colors.green.shade400.withOpacity(0.25)
+                          : Colors.orange.shade400.withOpacity(0.25),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           _buildSectionTitle('Principais ações'),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _buildQuickActions(context),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double gridWidth = constraints.maxWidth;
+              final int cols = gridWidth < 600 ? 1 : (gridWidth < 900 ? 2 : 3);
+              const double spacing = 16.0;
+              final double itemWidth = (gridWidth - (cols - 1) * spacing) / cols;
+              const double itemHeight = 100.0;
+              final double aspectRatio = itemWidth / itemHeight;
+              final actions = _buildQuickActions(context);
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  crossAxisSpacing: spacing,
+                  mainAxisSpacing: spacing,
+                  childAspectRatio: aspectRatio,
+                ),
+                itemCount: actions.length,
+                itemBuilder: (context, index) => actions[index],
+              );
+            },
           ),
-          const SizedBox(height: 28),
-          _buildSectionTitle('Painel inicial'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 32),
+          _buildSectionTitle('Painel informativo'),
+          const SizedBox(height: 16),
           _buildRoleSummaryCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -456,14 +573,66 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildRoleSummaryCard() {
     final summaryText = _roleSummaryText();
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          summaryText,
-          style: const TextStyle(fontSize: 16, height: 1.6),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: Color(0xFF00B4D8),
+                width: 5,
+              ),
+            ),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                color: Color(0xFF00B4D8),
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Resumo do Perfil',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2B2D42),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      summaryText,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -487,7 +656,23 @@ class _HomePageState extends State<HomePage> {
     required String label,
     required VoidCallback onTap,
   }) {
-    return ListTile(leading: Icon(icon), title: Text(label), onTap: onTap);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ListTile(
+        leading: Icon(icon, color: const Color(0xFF00B4D8)),
+        title: Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+            color: Color(0xFF2B2D42),
+          ),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        hoverColor: const Color(0xFF00B4D8).withOpacity(0.05),
+        onTap: onTap,
+      ),
+    );
   }
 
   Widget _buildFeatureCard({
@@ -496,35 +681,70 @@ class _HomePageState extends State<HomePage> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return SizedBox(
-      width: 260,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        elevation: 2,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 28, color: const Color(0xFF00B4D8)),
-                const SizedBox(height: 14),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+    return Card(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200, width: 1.5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00B4D8).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: const Color(0xFF00B4D8),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2B2D42),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: Colors.grey.shade400,
+              ),
+            ],
           ),
         ),
       ),
@@ -532,23 +752,27 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildSectionTitle(String label) {
-    return Text(
-      label,
-      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-    );
-  }
-
-  Widget _buildChip(String text, IconData icon, Color background) {
-    return Chip(
-      avatar: Icon(icon, size: 18, color: Colors.white),
-      backgroundColor: background,
-      label: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: const Color(0xFF00B4D8),
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2B2D42),
+          ),
+        ),
+      ],
     );
   }
 }
+

@@ -159,6 +159,37 @@ def list_pacientes():
         db.close()
 
 
+@paciente_bp.route('/pacientes/cpf/<cpf>', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
+def get_paciente_by_cpf(cpf):
+    """Obtém um paciente pelo CPF."""
+    cpf_limpo = ''.join(filter(str.isdigit, cpf))
+    if len(cpf_limpo) != 11:
+        return jsonify({"error": "CPF deve conter 11 dígitos"}), 400
+
+    db = get_db_connection()
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    nome,
+                    cpf,
+                    telefone,
+                    cidade
+                FROM PACIENTE
+                WHERE cpf = %s
+            """, (cpf_limpo,))
+            paciente = cursor.fetchone()
+            if paciente:
+                return jsonify(paciente), 200
+            else:
+                return jsonify({"error": "Paciente não encontrado"}), 404
+    finally:
+        db.close()
+
+
 @paciente_bp.route('/pacientes/<int:id>', methods=['GET'])
 @login_requerido
 @papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')

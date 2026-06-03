@@ -148,6 +148,7 @@ def logout():
 
 
 @auth_bp.route('/recuperar-senha', methods=['POST'])
+@auth_bp.route('/forgot', methods=['POST'])
 def solicitar_recuperacao_senha():
     dados = request.get_json()
     if not dados:

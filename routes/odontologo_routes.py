@@ -152,7 +152,7 @@ def validar_odontologo(nome, cro, salario, id_especialidade):
 
 @odontologo_bp.route('/odontologos', methods=['GET'])
 @login_requerido
-@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO')
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def list_odontologos():
     """Lista todos os odontólogos."""
 

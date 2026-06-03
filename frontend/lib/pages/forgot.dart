@@ -29,7 +29,7 @@ class _ForgotScreenState extends State<ForgotScreen> {
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('${BackendService.baseUrl}/auth/forgot');
+    final url = Uri.parse('${BackendService.baseUrl}/auth/recuperar-senha');
     final payload = {'email': _emailController.text.trim()};
 
     try {

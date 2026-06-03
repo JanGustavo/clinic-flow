@@ -100,6 +100,7 @@ def list_consultas():
                     c.motivo,
                     c.valor,
                     c.prioridade,
+                    c.status,
                     p.nome AS paciente,
                     o.nome AS odontologo,
                     u.nome AS usuario_responsavel
@@ -134,6 +135,7 @@ def get_consulta(id):
                     c.motivo,
                     c.valor,
                     c.prioridade,
+                    c.status,
                     p.nome AS paciente,
                     o.nome AS odontologo,
                     u.nome AS usuario_responsavel
@@ -249,7 +251,7 @@ def create_consulta():
 
 @consulta_bp.route('/consultas/<int:id>', methods=['PUT'])
 @login_requerido
-@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO')
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
 def update_consulta(id):
     db = get_db_connection()
 
@@ -324,7 +326,7 @@ def update_consulta(id):
 
 @consulta_bp.route('/consultas/<int:id>', methods=['DELETE'])
 @login_requerido
-@papeis_autorizados('ADMIN', 'RECEPCIONISTA')
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'PACIENTE','ODONTOLOGO')
 def delete_consulta(id):
     db = get_db_connection()
 
