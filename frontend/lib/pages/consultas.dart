@@ -1855,12 +1855,22 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                     CircleAvatar(
                       radius: 26,
                       backgroundColor: consulta.corStatus.withOpacity(0.1),
-                      child: Text(
-                        dentistInitials.isNotEmpty ? dentistInitials : 'D',
-                        style: TextStyle(
-                          color: consulta.corStatus,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      child: ClipOval(
+                        child: Image.network(
+                          'https://ui-avatars.com/api/?name=${dentistInitials.isNotEmpty ? dentistInitials : "D"}&size=128&background=random&bold=true',
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Text(
+                              dentistInitials.isNotEmpty ? dentistInitials : 'D',
+                              style: TextStyle(
+                                color: consulta.corStatus,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),

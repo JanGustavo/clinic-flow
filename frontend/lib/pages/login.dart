@@ -21,6 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscureSenha = true;
+  static const Color colorBgPastelStart = Color(0xFFE0F2FE); // Soft pastel blue
+  static const Color colorBgPastelEnd = Color(0xFFFCE4EC);   // Soft pastel pink
 
   @override
   void dispose() {
@@ -130,19 +132,18 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     // Cores da paleta Neo-Pastel Chiclete
-    const colorBg = Color(0xFFF8F9FA); // Off-white clínico
     const colorPrimary = Color(0xFF00B4D8); // Azul Ciano/Chiclete
     const colorSecondary = Color(0xFFF50057); // Rosa Neon/Magenta (Acentos)
     const colorText = Color(0xFF212529); // Grafite Escuro
     const colorMuted = Color(0xFF6C757D);
 
     return Scaffold(
-      backgroundColor: colorBg,
+      backgroundColor: colorBgPastelStart,
       body: SafeArea(
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFFF8F9FA), Color(0xFFEFF7FF)],
+              colors: [colorBgPastelStart, colorBgPastelEnd],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -358,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
       labelStyle: const TextStyle(color: Colors.grey, fontSize: 14),
       prefixIcon: Icon(icon, color: activeColor),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: const Color(0xFFF8F9FA),
       contentPadding: const EdgeInsets.symmetric(vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(30),

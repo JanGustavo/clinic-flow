@@ -17,6 +17,8 @@ class _ForgotScreenState extends State<ForgotScreen> {
   final TextEditingController _emailController = TextEditingController();
 
   bool _isLoading = false;
+  static const Color colorBgPastelStart = Color(0xFFE0F2FE); // Soft pastel blue
+  static const Color colorBgPastelEnd = Color(0xFFFCE4EC);   // Soft pastel pink
 
   @override
   void dispose() {
@@ -99,19 +101,18 @@ class _ForgotScreenState extends State<ForgotScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const colorBg = Color(0xFFF8F9FA);
     const colorPrimary = Color(0xFF00B4D8);
     const colorSecondary = Color(0xFFF50057);
     const colorText = Color(0xFF212529);
     const colorMuted = Color(0xFF6C757D);
 
     return Scaffold(
-      backgroundColor: colorBg,
+      backgroundColor: colorBgPastelStart,
       body: SafeArea(
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFFF8F9FA), Color(0xFFEFF7FF)],
+              colors: [colorBgPastelStart, colorBgPastelEnd],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -259,7 +260,7 @@ class _ForgotScreenState extends State<ForgotScreen> {
       labelStyle: const TextStyle(color: Colors.grey, fontSize: 14),
       prefixIcon: Icon(icon, color: activeColor),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: const Color(0xFFF8F9FA),
       contentPadding: const EdgeInsets.symmetric(vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(30),

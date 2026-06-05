@@ -184,6 +184,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _getAvatarInitials() {
+    final nome = _profileData?['nome']?.toString().trim() ?? '';
+    if (nome.isEmpty) return 'U';
+    final partes = nome
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return 'U';
+    if (partes.length == 1) {
+      return partes.first.substring(0, 1).toUpperCase();
+    }
+    return (partes[0][0] + partes.last[0]).toUpperCase();
+  }
+
   Future<void> _logout() async {
     await BackendService.clearToken();
 
@@ -272,10 +286,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         shape: BoxShape.circle,
                         color: colorPrimary.withOpacity(0.18),
                       ),
-                      child: const Icon(
-                        Icons.person,
-                        size: 56,
-                        color: colorPrimary,
+                      child: ClipOval(
+                        child: Image.network(
+                          'https://ui-avatars.com/api/?name=${_getAvatarInitials()}&size=128&background=E6F0FF&color=00B4D8&bold=true',
+                          width: 110,
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.person,
+                              size: 56,
+                              color: colorPrimary,
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

@@ -23,6 +23,7 @@ class _ProcedimentosRecomendadosScreenState
   bool _loadingConsultas = true;
   String? _errorMessage;
   int? _consultaId;
+  String? _userRole;
 
   @override
   void initState() {
@@ -37,10 +38,25 @@ class _ProcedimentosRecomendadosScreenState
       _errorMessage = null;
     });
 
-    final url = Uri.parse('${BackendService.baseUrl}/consultas');
-
     try {
       final headers = await BackendService.authHeaders();
+
+      // 1. Fetch current logged-in user profile to get their role and name
+      final profileUrl = Uri.parse('${BackendService.baseUrl}/usuarios/perfil');
+      final profileResponse = await http.get(profileUrl, headers: headers);
+      String? loggedInName;
+      String? loggedInRole;
+      if (profileResponse.statusCode == 200) {
+        final profileData = jsonDecode(profileResponse.body);
+        loggedInName = profileData['nome']?.toString();
+        loggedInRole = profileData['tipo']?.toString().toUpperCase();
+        setState(() {
+          _userRole = loggedInRole;
+        });
+      }
+
+      // 2. Fetch consultations
+      final url = Uri.parse('${BackendService.baseUrl}/consultas');
       final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
@@ -52,9 +68,18 @@ class _ProcedimentosRecomendadosScreenState
           listaJson = decoded['data'];
         }
 
-        final List<Map<String, dynamic>> loadedConsultas = listaJson
+        List<Map<String, dynamic>> loadedConsultas = listaJson
             .whereType<Map<String, dynamic>>()
             .toList();
+
+        // 3. Filter consultations if the user is a PACIENTE
+        if (loggedInRole == 'PACIENTE' && loggedInName != null) {
+          final targetName = loggedInName.trim().toLowerCase();
+          loadedConsultas = loadedConsultas.where((c) {
+            final pacienteNome = c['paciente']?.toString().trim().toLowerCase() ?? '';
+            return pacienteNome == targetName;
+          }).toList();
+        }
 
         setState(() {
           _consultas = loadedConsultas;
@@ -275,7 +300,7 @@ class _ProcedimentosRecomendadosScreenState
                             ),
                             items: _consultas.map((c) {
                               final id = c['id'] as int;
-                              final paciente = c['paciente']?.toString() ?? 'Sem Paciente';
+                              final odontologo = c['odontologo']?.toString() ?? 'Dentista';
                               final dataRaw = c['data_hora']?.toString() ?? '';
                               String dataFormatted = dataRaw;
                               try {
@@ -286,7 +311,7 @@ class _ProcedimentosRecomendadosScreenState
                               return DropdownMenuItem<int>(
                                 value: id,
                                 child: Text(
-                                  '#$id - $paciente ($dataFormatted)',
+                                  'Consulta #$id - Dr(a). $odontologo ($dataFormatted)',
                                   style: const TextStyle(fontSize: 14),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -484,7 +509,7 @@ class _ProcedimentosRecomendadosScreenState
                 ),
               ),
       ),
-      floatingActionButton: _consultaId != null
+      floatingActionButton: (_consultaId != null && _userRole != 'PACIENTE')
           ? FloatingActionButton.extended(
               backgroundColor: const Color(0xFF00B4D8),
               onPressed: () async {

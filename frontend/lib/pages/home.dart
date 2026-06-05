@@ -177,12 +177,22 @@ class _HomePageState extends State<HomePage> {
               decoration: const BoxDecoration(color: colorPrimary),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
-                child: Text(
-                  _getAvatarInitials(),
-                  style: const TextStyle(
-                    color: Color(0xFF00B4D8),
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                child: ClipOval(
+                  child: Image.network(
+                    'https://ui-avatars.com/api/?name=${_getAvatarInitials()}&size=128&background=E6F0FF&color=00B4D8&bold=true',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Text(
+                        _getAvatarInitials(),
+                        style: const TextStyle(
+                          color: Color(0xFF00B4D8),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -355,12 +365,22 @@ class _HomePageState extends State<HomePage> {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: Colors.white.withOpacity(0.2),
-                      child: Text(
-                        _getAvatarInitials(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      child: ClipOval(
+                        child: Image.network(
+                          'https://ui-avatars.com/api/?name=${_getAvatarInitials()}&size=128&background=E6F0FF&color=00B4D8&bold=true',
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Text(
+                              _getAvatarInitials(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -583,21 +603,6 @@ class _HomePageState extends State<HomePage> {
           subtitle: 'Acesse rapidamente sua agenda clínico',
           icon: Icons.schedule,
           onTap: () => Navigator.of(context).pushNamed('/consultas'),
-        ),
-      );
-    }
-
-    if (hasRole('PACIENTE')) {
-      actions.add(
-        _buildFeatureCard(
-          title: 'Meus procedimentos',
-          subtitle: 'Consulte os procedimentos recomendados',
-          icon: Icons.medical_information,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Procedimentos pessoais em breve.')),
-            );
-          },
         ),
       );
     }
