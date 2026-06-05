@@ -101,6 +101,10 @@ def list_consultas():
                     c.valor,
                     c.prioridade,
                     c.status,
+                    c.id_paciente,
+                    c.id_odontologo,
+                    c.id_usuario_responsavel,
+                    p.cpf AS paciente_cpf,
                     p.nome AS paciente,
                     o.nome AS odontologo,
                     u.nome AS usuario_responsavel
@@ -136,6 +140,10 @@ def get_consulta(id):
                     c.valor,
                     c.prioridade,
                     c.status,
+                    c.id_paciente,
+                    c.id_odontologo,
+                    c.id_usuario_responsavel,
+                    p.cpf AS paciente_cpf,
                     p.nome AS paciente,
                     o.nome AS odontologo,
                     u.nome AS usuario_responsavel

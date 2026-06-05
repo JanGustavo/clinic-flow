@@ -10,5 +10,6 @@ def get_db_connection():
         user=os.getenv('db_user'),
         password=os.getenv('db_password'),
         database=os.getenv('db_name'),
+        charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor
     )

@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -60,9 +62,20 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
       final headers = await BackendService.authHeaders();
 
       // Fetch Procedimentos (public endpoint)
+      final procedimentosUrl = '${BackendService.baseUrl}/procedimentos';
+      developer.log(
+        'Fetching procedimentos from $procedimentosUrl',
+        name: 'ConsultasScreen',
+      );
+
       final resProcedimentos = await http.get(
-        Uri.parse('${BackendService.baseUrl}/procedimentos'),
+        Uri.parse(procedimentosUrl),
         headers: headers,
+      );
+
+      developer.log(
+        'Procedimentos response: ${resProcedimentos.statusCode}, body length: ${resProcedimentos.body.length}',
+        name: 'ConsultasScreen',
       );
 
       if (!mounted) return;
@@ -70,9 +83,13 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
       List<Map<String, dynamic>> loadedProcedimentos = [];
       if (resProcedimentos.statusCode == 200) {
         final decoded = jsonDecode(resProcedimentos.body);
-        final raw = decoded is Map && decoded['data'] != null
-            ? decoded['data']
-            : decoded;
+        dynamic raw = decoded;
+        if (decoded is Map && decoded['data'] != null) {
+          raw = decoded['data'];
+        }
+        if (raw is Map<String, dynamic> && raw['procedimentos'] is List) {
+          raw = raw['procedimentos'];
+        }
         if (raw is List) {
           for (var item in raw) {
             if (item is Map) {
@@ -80,6 +97,15 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
             }
           }
         }
+        developer.log(
+          'Loaded ${loadedProcedimentos.length} procedimentos',
+          name: 'ConsultasScreen',
+        );
+      } else {
+        developer.log(
+          'Failed to load procedimentos catalog: ${resProcedimentos.statusCode}',
+          name: 'ConsultasScreen',
+        );
       }
 
       setState(() {
@@ -87,7 +113,11 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
         _loadingDialogData = false;
       });
     } catch (e) {
-      debugPrint('Error fetching dialog data: $e');
+      developer.log(
+        'Error fetching dialog data: $e',
+        name: 'ConsultasScreen',
+        error: e,
+      );
       if (!mounted) return;
       setState(() {
         _loadingDialogData = false;
@@ -301,7 +331,9 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
     return [];
   }
 
-  Future<void> _showSolicitarConsultaDialog({Map<String, dynamic>? preselectedExame}) async {
+  Future<void> _showSolicitarConsultaDialog({
+    Map<String, dynamic>? preselectedExame,
+  }) async {
     if (_loadingDialogData) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -333,7 +365,7 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
     int? selectedPacienteId;
     int? selectedOdontologoId;
     int? selectedProcedimentoId;
-    
+
     if (preselectedExame != null && _procedimentos.isNotEmpty) {
       try {
         final found = _procedimentos.firstWhere(
@@ -345,7 +377,9 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
         selectedProcedimentoId = _procedimentos.first['id'] as int?;
       }
     } else {
-      selectedProcedimentoId = _procedimentos.isNotEmpty ? _procedimentos.first['id'] as int? : null;
+      selectedProcedimentoId = _procedimentos.isNotEmpty
+          ? _procedimentos.first['id'] as int?
+          : null;
     }
 
     final initialProcedimento = _procedimentos.firstWhere(
@@ -746,13 +780,17 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                               setDialogState(() {
                                 selectedProcedimentoId = val;
                                 if (val != null) {
-                                  final proc = _procedimentos.firstWhere((p) => p['id'] == val);
+                                  final proc = _procedimentos.firstWhere(
+                                    (p) => p['id'] == val,
+                                  );
                                   final double price =
                                       double.tryParse(
                                         proc['valor']?.toString() ?? '0',
                                       ) ??
                                       0.0;
-                                  valorController.text = price.toStringAsFixed(2);
+                                  valorController.text = price.toStringAsFixed(
+                                    2,
+                                  );
                                 }
                               });
                             },
@@ -938,7 +976,8 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                                                   ),
                                                   headers: headers,
                                                   body: jsonEncode({
-                                                    'id_procedimento': selectedProcedimentoId,
+                                                    'id_procedimento':
+                                                        selectedProcedimentoId,
                                                   }),
                                                 );
                                               }
@@ -1018,6 +1057,501 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
         );
       },
     );
+  }
+
+  Future<void> _showEditarConsultaDialog(_ConsultaItem consulta) async {
+    if (_loadingDialogData) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Carregando informações da clínica... Tente novamente em instantes.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_procedimentos.isEmpty) {
+      await _fetchDialogData();
+    }
+
+    if (!mounted) return;
+
+    final formKey = GlobalKey<FormState>();
+    DateTime selectedDateTime =
+        DateTime.tryParse(consulta.dataHoraRaw) ??
+        DateTime.now().add(const Duration(days: 1));
+    final motivoController = TextEditingController(text: consulta.motivo);
+    final valorController = TextEditingController(
+      text: consulta.valorRaw.toStringAsFixed(2),
+    );
+    String prioridade = consulta.prioridade.toUpperCase();
+    int? selectedOdontologoId = consulta.idOdontologo;
+    bool loadingDentists = false;
+    List<Map<String, dynamic>> availableDentists = [];
+    String? dentistError;
+
+    Future<void> atualizarDentistas(
+      DateTime dt,
+      Function(void Function()) setDialogState,
+    ) async {
+      setDialogState(() {
+        loadingDentists = true;
+        dentistError = null;
+      });
+
+      final diaSemana = obterDiaSemana(dt);
+      final turno = obterTurno(dt);
+      final list = await _fetchAvailableOdontologos(diaSemana, turno);
+
+      setDialogState(() {
+        if (list.isNotEmpty) {
+          if (selectedOdontologoId == null ||
+              !list.any((item) => item['id'] == selectedOdontologoId)) {
+            selectedOdontologoId = list.first['id'] as int?;
+          }
+        } else {
+          dentistError = 'Nenhum odontólogo disponível neste horário';
+        }
+        loadingDentists = false;
+      });
+    }
+
+    Future<void> selectDateTime(
+      BuildContext context,
+      Function(void Function()) setDialogState,
+    ) async {
+      final DateTime? date = await showDatePicker(
+        context: context,
+        initialDate: selectedDateTime,
+        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (date == null) return;
+
+      if (!context.mounted) return;
+
+      final TimeOfDay? time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+      );
+      if (time == null) return;
+
+      final newDateTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+
+      setDialogState(() {
+        selectedDateTime = newDateTime;
+      });
+
+      await atualizarDentistas(newDateTime, setDialogState);
+    }
+
+    bool initialized = false;
+    String? localError;
+    bool submetendo = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            if (!initialized) {
+              initialized = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                atualizarDentistas(selectedDateTime, setDialogState);
+              });
+            }
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width > 760
+                      ? 720
+                      : MediaQuery.of(context).size.width - 32,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF00B4D8,
+                                ).withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.edit_calendar_outlined,
+                                size: 32,
+                                color: Color(0xFF00B4D8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Center(
+                            child: Text(
+                              'Editar Consulta',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2B2D42),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Paciente: ${consulta.paciente}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6C757D),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: motivoController,
+                            decoration: _dialogInputDecoration(
+                              'Motivo / Descrição',
+                              Icons.assignment_outlined,
+                            ),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Informe o motivo da consulta.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: valorController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: _dialogInputDecoration(
+                              'Valor da Consulta',
+                              Icons.payments_outlined,
+                            ),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Informe o valor da consulta.';
+                              }
+                              if (double.tryParse(val.replaceAll(',', '.')) ==
+                                  null) {
+                                return 'Valor inválido';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          GestureDetector(
+                            onTap: () =>
+                                selectDateTime(context, setDialogState),
+                            child: AbsorbPointer(
+                              child: TextFormField(
+                                decoration: _dialogInputDecoration(
+                                  'Data e hora',
+                                  Icons.calendar_today_rounded,
+                                ),
+                                controller: TextEditingController(
+                                  text: _formatDateTime(
+                                    selectedDateTime.toIso8601String(),
+                                  ),
+                                ),
+                                validator: (_) => null,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          if (loadingDentists)
+                            const Center(child: CircularProgressIndicator())
+                          else if (dentistError != null)
+                            Text(
+                              dentistError!,
+                              style: const TextStyle(color: Colors.redAccent),
+                            )
+                          else ...[
+                            DropdownButtonFormField<int>(
+                              value: selectedOdontologoId,
+                              decoration: _dialogInputDecoration(
+                                'Odontólogo',
+                                Icons.person_search_outlined,
+                              ),
+                              items: availableDentists.map((item) {
+                                final id = item['id'] is int
+                                    ? item['id'] as int
+                                    : int.tryParse('${item['id']}');
+                                return DropdownMenuItem<int>(
+                                  value: id,
+                                  child: Text(
+                                    item['nome']?.toString() ?? 'Odontólogo',
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  selectedOdontologoId = value;
+                                });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Selecione um odontólogo';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            value: prioridade,
+                            decoration: _dialogInputDecoration(
+                              'Prioridade',
+                              Icons.priority_high,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'BAIXA',
+                                child: Text('Baixa'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'MEDIA',
+                                child: Text('Média'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ALTA',
+                                child: Text('Alta'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'URGENTE',
+                                child: Text('Urgente'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setDialogState(() {
+                                if (value != null) prioridade = value;
+                              });
+                            },
+                          ),
+                          if (localError != null) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              localError!,
+                              style: const TextStyle(color: Colors.redAccent),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: submetendo
+                                      ? null
+                                      : () async {
+                                          if (!formKey.currentState!
+                                              .validate()) {
+                                            return;
+                                          }
+
+                                          if (selectedOdontologoId == null) {
+                                            setDialogState(() {
+                                              localError =
+                                                  'Selecione um odontólogo.';
+                                            });
+                                            return;
+                                          }
+
+                                          final body = jsonEncode({
+                                            'id_paciente': consulta.idPaciente,
+                                            'id_odontologo':
+                                                selectedOdontologoId,
+                                            'id_usuario_responsavel':
+                                                _currentUserId ??
+                                                consulta.idUsuarioResponsavel,
+                                            'data_hora': selectedDateTime
+                                                .toIso8601String(),
+                                            'motivo': motivoController.text
+                                                .trim(),
+                                            'valor':
+                                                double.tryParse(
+                                                  valorController.text
+                                                      .replaceAll(',', '.'),
+                                                ) ??
+                                                0.0,
+                                            'prioridade': prioridade,
+                                          });
+
+                                          setDialogState(() {
+                                            submetendo = true;
+                                            localError = null;
+                                          });
+
+                                          try {
+                                            final headers =
+                                                await BackendService.authHeaders();
+                                            final response = await http.put(
+                                              Uri.parse(
+                                                '${BackendService.baseUrl}/consultas/${consulta.id}',
+                                              ),
+                                              headers: headers,
+                                              body: body,
+                                            );
+
+                                            if (!mounted) return;
+                                            if (response.statusCode == 200) {
+                                              Navigator.of(context).pop();
+                                              _fetchConsultas();
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Consulta atualizada com sucesso.',
+                                                  ),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            } else {
+                                              final decoded = jsonDecode(
+                                                response.body,
+                                              );
+                                              setDialogState(() {
+                                                localError =
+                                                    decoded
+                                                        is Map<String, dynamic>
+                                                    ? decoded['error']
+                                                              ?.toString() ??
+                                                          decoded['message']
+                                                              ?.toString()
+                                                    : 'Falha ao atualizar consulta.';
+                                              });
+                                            }
+                                          } catch (e) {
+                                            setDialogState(() {
+                                              localError = 'Erro de rede: $e';
+                                            });
+                                          } finally {
+                                            setDialogState(() {
+                                              submetendo = false;
+                                            });
+                                          }
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF00B4D8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                  ),
+                                  child: submetendo
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text('Atualizar'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteConsulta(_ConsultaItem consulta) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Cancelar consulta'),
+          content: Text(
+            'Deseja cancelar a consulta de ${consulta.paciente} com ${consulta.odontologo}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Não'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sim'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final headers = await BackendService.authHeaders();
+      final response = await http.delete(
+        Uri.parse('${BackendService.baseUrl}/consultas/${consulta.id}'),
+        headers: headers,
+      );
+
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        await _fetchConsultas();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Consulta cancelada com sucesso.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        final decoded = jsonDecode(response.body);
+        final message = decoded is Map<String, dynamic>
+            ? decoded['error']?.toString() ?? decoded['message']?.toString()
+            : 'Falha ao cancelar consulta.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message!)));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro de rede: $e')));
+    }
   }
 
   @override
@@ -1369,6 +1903,30 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                         ),
                       ),
                     ),
+                    const Spacer(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit,
+                            size: 22,
+                            color: Color(0xFF00B4D8),
+                          ),
+                          tooltip: 'Editar consulta',
+                          onPressed: () => _showEditarConsultaDialog(consulta),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            size: 22,
+                            color: Color(0xFFF50057),
+                          ),
+                          tooltip: 'Cancelar consulta',
+                          onPressed: () => _deleteConsulta(consulta),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1443,28 +2001,42 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
       ],
     );
   }
+
+  String? _formatDateTime(String iso8601string) {}
 }
 
 class _ConsultaItem {
   _ConsultaItem({
     required this.id,
     required this.dataHora,
+    required this.dataHoraRaw,
     required this.motivo,
     required this.valor,
+    required this.valorRaw,
     required this.prioridade,
     required this.paciente,
+    required this.pacienteCpf,
     required this.odontologo,
+    required this.idPaciente,
+    required this.idOdontologo,
     required this.usuarioResponsavel,
+    required this.idUsuarioResponsavel,
   }) : corStatus = _colorFromPrioridade(prioridade),
        status = _statusFromPrioridade(prioridade);
 
   final int id;
   final String dataHora;
+  final String dataHoraRaw;
   final String motivo;
   final String valor;
+  final double valorRaw;
   final String prioridade;
   final String paciente;
+  final String pacienteCpf;
   final String odontologo;
+  final int idPaciente;
+  final int idOdontologo;
+  final int idUsuarioResponsavel;
   final String usuarioResponsavel;
   final Color corStatus;
   final String status;
@@ -1476,14 +2048,33 @@ class _ConsultaItem {
           ? json['id'] as int
           : int.tryParse('${json['id']}') ?? 0,
       dataHora: _formatDateTime(rawDataHora),
+      dataHoraRaw: rawDataHora,
       motivo: json['motivo']?.toString() ?? 'Sem motivo informado',
+      valorRaw: _parseValor(json['valor']),
       valor: _formatValor(json['valor']),
       prioridade: json['prioridade']?.toString() ?? 'BAIXA',
       paciente: json['paciente']?.toString() ?? 'Desconhecido',
+      pacienteCpf: json['paciente_cpf']?.toString() ?? '',
       odontologo: json['odontologo']?.toString() ?? 'Odontologista',
+      idPaciente: json['id_paciente'] is int
+          ? json['id_paciente'] as int
+          : int.tryParse('${json['id_paciente']}') ?? 0,
+      idOdontologo: json['id_odontologo'] is int
+          ? json['id_odontologo'] as int
+          : int.tryParse('${json['id_odontologo']}') ?? 0,
+      idUsuarioResponsavel: json['id_usuario_responsavel'] is int
+          ? json['id_usuario_responsavel'] as int
+          : int.tryParse('${json['id_usuario_responsavel']}') ?? 0,
       usuarioResponsavel:
           json['usuario_responsavel']?.toString() ?? 'Não informado',
     );
+  }
+
+  static double _parseValor(dynamic rawValor) {
+    if (rawValor == null) return 0.0;
+    if (rawValor is num) return rawValor.toDouble();
+    final parsed = double.tryParse(rawValor.toString().replaceAll(',', '.'));
+    return parsed ?? 0.0;
   }
 
   static String _statusFromPrioridade(String prioridade) {

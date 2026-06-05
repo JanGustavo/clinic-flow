@@ -1,0 +1,12 @@
+{
+  "nome": "João Silva",
+  "data_nascimento": "1990-01-01",
+  "cpf": "12345678901",
+  "telefone": "11999999999",
+  "cep": "12345678",
+  "logradouro": "Rua A",
+  "numero_casa": "100",
+  "bairro": "Centro",
+  "cidade": "São Paulo",
+  "estado": "SP"
+}

@@ -78,8 +78,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        _profileData = data is Map<String, dynamic> ? data : null;
+        final payload = jsonDecode(response.body);
+        final data =
+            payload is Map<String, dynamic> &&
+                payload['data'] is Map<String, dynamic>
+            ? payload['data'] as Map<String, dynamic>
+            : payload is Map<String, dynamic>
+            ? payload
+            : null;
+        _profileData = data;
         _nomeController.text = _profileData?['nome']?.toString() ?? '';
         _emailController.text = _profileData?['email']?.toString() ?? '';
         setState(() {

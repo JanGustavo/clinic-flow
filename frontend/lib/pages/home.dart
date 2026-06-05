@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:frontend/pages/login.dart';
 import 'package:http/http.dart' as http;
 import 'package:frontend/services/backend_service.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.sessionToken});
@@ -67,6 +66,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Map<String, dynamic>? _normalizeApiData(dynamic responseJson) {
+    if (responseJson is Map<String, dynamic>) {
+      if (responseJson['data'] is Map<String, dynamic>) {
+        return responseJson['data'] as Map<String, dynamic>;
+      }
+      if (responseJson['success'] == true &&
+          responseJson['data'] is Map<String, dynamic>) {
+        return responseJson['data'] as Map<String, dynamic>;
+      }
+    }
+    return responseJson is Map<String, dynamic> ? responseJson : null;
+  }
+
   Future<void> _carregarPerfil() async {
     if (_sessionToken == null || _sessionToken!.isEmpty) {
       if (!mounted) return;
@@ -94,9 +106,10 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final payload = jsonDecode(response.body);
+        final data = _normalizeApiData(payload);
         setState(() {
-          _profileData = data is Map<String, dynamic> ? data : null;
+          _profileData = data;
           _profileError = null;
           _isLoadingProfile = false;
         });
@@ -124,6 +137,20 @@ class _HomePageState extends State<HomePage> {
 
   bool hasRole(String role) => _userRole == role.toUpperCase();
 
+  String _getAvatarInitials() {
+    final nome = _profileData?['nome']?.toString().trim() ?? '';
+    if (nome.isEmpty) return 'U';
+    final partes = nome
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return 'U';
+    if (partes.length == 1) {
+      return partes.first.substring(0, 1).toUpperCase();
+    }
+    return (partes[0][0] + partes.last[0]).toUpperCase();
+  }
+
   Future<void> _logout() async {
     await BackendService.clearToken();
 
@@ -148,15 +175,15 @@ class _HomePageState extends State<HomePage> {
           children: [
             UserAccountsDrawerHeader(
               decoration: const BoxDecoration(color: colorPrimary),
-              currentAccountPicture: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: SvgPicture.asset(
-                  'assets/branding/sorriso_perfeito.svg',
-                  fit: BoxFit.contain,
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Text(
+                  _getAvatarInitials(),
+                  style: const TextStyle(
+                    color: Color(0xFF00B4D8),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               accountName: Text(
@@ -169,7 +196,8 @@ class _HomePageState extends State<HomePage> {
               ),
               accountEmail: Text(
                 _sessaoAtiva
-                    ? (_profileData?['email']?.toString() ?? '${_roleLabel()} conectado')
+                    ? (_profileData?['email']?.toString() ??
+                          '${_roleLabel()} conectado')
                     : 'Acesse para mais opções',
                 style: const TextStyle(color: Colors.white70),
               ),
@@ -203,19 +231,22 @@ class _HomePageState extends State<HomePage> {
                 Navigator.of(context).pushNamed('/procedimentos');
               },
             ),
-            if (hasRole('ADMIN'))
+            if (!hasRole('PACIENTE'))
               _buildDrawerItem(
-                icon: Icons.group_outlined,
-                label: 'Usuários',
+                icon: Icons.person_outline,
+                label: 'Pacientes',
                 onTap: () {
                   Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Funcionalidade de gestão de usuários ainda em implantação.',
-                      ),
-                    ),
-                  );
+                  Navigator.of(context).pushNamed('/pacientes');
+                },
+              ),
+            if (hasRole('ADMIN'))
+              _buildDrawerItem(
+                icon: Icons.medical_services_outlined,
+                label: 'Odontólogos',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamed('/odontologos');
                 },
               ),
             const Divider(),
@@ -324,16 +355,13 @@ class _HomePageState extends State<HomePage> {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: Colors.white.withOpacity(0.2),
-                      child: Icon(
-                        hasRole('ODONTOLOGO')
-                            ? Icons.medical_services_outlined
-                            : (hasRole('ADMIN')
-                                ? Icons.admin_panel_settings_outlined
-                                : (hasRole('RECEPCIONISTA')
-                                    ? Icons.badge_outlined
-                                    : Icons.person_outline)),
-                        size: 28,
-                        color: Colors.white,
+                      child: Text(
+                        _getAvatarInitials(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -394,7 +422,8 @@ class _HomePageState extends State<HomePage> {
               final double gridWidth = constraints.maxWidth;
               final int cols = gridWidth < 600 ? 1 : (gridWidth < 900 ? 2 : 3);
               const double spacing = 16.0;
-              final double itemWidth = (gridWidth - (cols - 1) * spacing) / cols;
+              final double itemWidth =
+                  (gridWidth - (cols - 1) * spacing) / cols;
               const double itemHeight = 100.0;
               final double aspectRatio = itemWidth / itemHeight;
               final actions = _buildQuickActions(context);
@@ -508,19 +537,24 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    if (!hasRole('PACIENTE')) {
+      actions.add(
+        _buildFeatureCard(
+          title: 'Pacientes',
+          subtitle: 'Gerencie o cadastro de pacientes',
+          icon: Icons.person_outline,
+          onTap: () => Navigator.of(context).pushNamed('/pacientes'),
+        ),
+      );
+    }
+
     if (hasRole('ADMIN')) {
       actions.add(
         _buildFeatureCard(
-          title: 'Gestão de usuários',
-          subtitle: 'Perfis, acesso e permissões',
-          icon: Icons.group,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Gestão de usuários será liberada em breve.'),
-              ),
-            );
-          },
+          title: 'Odontólogos',
+          subtitle: 'Gerencie o cadastro de odontólogos',
+          icon: Icons.medical_services,
+          onTap: () => Navigator.of(context).pushNamed('/odontologos'),
         ),
       );
     }
@@ -591,10 +625,7 @@ class _HomePageState extends State<HomePage> {
         child: Container(
           decoration: const BoxDecoration(
             border: Border(
-              left: BorderSide(
-                color: Color(0xFF00B4D8),
-                width: 5,
-              ),
+              left: BorderSide(color: Color(0xFF00B4D8), width: 5),
             ),
           ),
           padding: const EdgeInsets.all(20),
@@ -702,11 +733,7 @@ class _HomePageState extends State<HomePage> {
                   color: const Color(0xFF00B4D8).withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: const Color(0xFF00B4D8),
-                ),
+                child: Icon(icon, size: 24, color: const Color(0xFF00B4D8)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -775,4 +802,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-

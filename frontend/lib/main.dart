@@ -7,6 +7,8 @@ import 'package:frontend/pages/recover.dart';
 import 'package:frontend/pages/consultas.dart';
 import 'package:frontend/pages/procedimentos.dart';
 import 'package:frontend/pages/procedimentos_recomendados.dart';
+import 'package:frontend/pages/pacientes.dart';
+import 'package:frontend/pages/odontologos.dart';
 import 'package:frontend/pages/profile.dart';
 
 void main() {
@@ -39,6 +41,8 @@ class MyApp extends StatelessWidget {
         '/home': (_) => const HomePage(),
         '/perfil': (_) => const ProfileScreen(),
         '/consultas': (_) => const ConsultasScreen(),
+        '/pacientes': (_) => const PacientesScreen(),
+        '/odontologos': (_) => const OdontologosScreen(),
         '/procedimentos': (_) => const ProcedimentosScreen(),
         '/procedimentos_recomendados': (_) =>
             const ProcedimentosRecomendadosScreen(),

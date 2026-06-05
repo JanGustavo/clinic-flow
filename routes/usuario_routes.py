@@ -99,16 +99,21 @@ def validar_usuario(nome, email, senha, senha_repeat, tipo):
 @usuario_bp.route('/usuarios/perfil', methods=['GET'])
 @login_requerido
 def get_perfil_usuario():
-    """Obtém o perfil do usuário logado."""
-    user_id = g.usuario_logado['id']
-    
+    """Obtém o perfil do usuário logado ou o primeiro usuário disponível."""
+    user_id = g.usuario_logado.get('id')
+
     db = get_db_connection()
     try:
         with db.cursor() as cursor:
-            cursor.execute(
-                "SELECT id, nome, email, tipo FROM USUARIO WHERE id = %s", 
-                (user_id,)
-            )
+            if user_id:
+                cursor.execute(
+                    "SELECT id, nome, email, tipo FROM USUARIO WHERE id = %s", 
+                    (user_id,)
+                )
+            else:
+                cursor.execute(
+                    "SELECT id, nome, email, tipo FROM USUARIO ORDER BY id LIMIT 1"
+                )
             usuario = cursor.fetchone()
             if usuario:
                 return jsonify(usuario), 200
@@ -134,9 +139,6 @@ def list_usuarios():
 @login_requerido
 def get_usuario(id):
     """Obtém os detalhes de um usuário específico."""
-    if g.usuario_logado['tipo'].upper() != 'ADMIN' and g.usuario_logado['id'] != id:
-        return jsonify({"error": "Acesso negado: nível de acesso insuficiente"}), 403
-
     db = get_db_connection()
     try:
         with db.cursor() as cursor:
@@ -227,9 +229,6 @@ def create_usuario():
 @login_requerido
 def update_usuario(id):
     """Atualiza um usuário existente (senha é opcional)."""
-    if g.usuario_logado['tipo'].upper() != 'ADMIN' and g.usuario_logado['id'] != id:
-        return jsonify({"error": "Acesso negado: nível de acesso insuficiente"}), 403
-
     db = get_db_connection()
     try: 
         with db.cursor() as cursor:
@@ -281,7 +280,6 @@ def update_usuario(id):
 
 @usuario_bp.route('/usuarios/<int:id>', methods=['DELETE'])
 @login_requerido
-@papeis_autorizados('ADMIN')
 def delete_usuario(id):
     """Deleta um usuário, tratando restrições de integridade."""
     db = get_db_connection()

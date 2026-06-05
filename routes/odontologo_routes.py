@@ -397,6 +397,22 @@ def delete_odontologo(id):
         db.close()
 
 
+@odontologo_bp.route('/especialidades', methods=['GET'])
+@login_requerido
+@papeis_autorizados('ADMIN', 'RECEPCIONISTA', 'ODONTOLOGO', 'PACIENTE')
+def list_especialidades():
+    db = get_db_connection()
+
+    try:
+        with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, nome FROM ESPECIALIDADE ORDER BY nome"
+            )
+            return jsonify(cursor.fetchall()), 200
+    finally:
+        db.close()
+
+
 @odontologo_bp.route(
     '/odontologos/disponiveis/<dia_semana>/<turno>',
     methods=['GET']
