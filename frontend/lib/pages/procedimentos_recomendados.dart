@@ -304,7 +304,14 @@ class _ProcedimentosRecomendadosScreenState
                               final dataRaw = c['data_hora']?.toString() ?? '';
                               String dataFormatted = dataRaw;
                               try {
-                                if (dataRaw.length >= 16) {
+                                final parsed = DateTime.tryParse(dataRaw);
+                                if (parsed != null) {
+                                  dataFormatted = '${parsed.day.toString().padLeft(2, '0')}/'
+                                      '${parsed.month.toString().padLeft(2, '0')}/'
+                                      '${parsed.year} '
+                                      '${parsed.hour.toString().padLeft(2, '0')}:'
+                                      '${parsed.minute.toString().padLeft(2, '0')}';
+                                } else if (dataRaw.length >= 16) {
                                   dataFormatted = dataRaw.substring(0, 16).replaceAll('T', ' ');
                                 }
                               } catch (_) {}
@@ -397,7 +404,14 @@ class _ProcedimentosRecomendadosScreenState
                                   final dataRaw = selectedConsulta['data_hora']?.toString() ?? '';
                                   String dataFormatted = dataRaw;
                                   try {
-                                    if (dataRaw.length >= 16) {
+                                    final parsed = DateTime.tryParse(dataRaw);
+                                    if (parsed != null) {
+                                      dataFormatted = '${parsed.day.toString().padLeft(2, '0')}/'
+                                          '${parsed.month.toString().padLeft(2, '0')}/'
+                                          '${parsed.year} '
+                                          '${parsed.hour.toString().padLeft(2, '0')}:'
+                                          '${parsed.minute.toString().padLeft(2, '0')}';
+                                    } else if (dataRaw.length >= 16) {
                                       dataFormatted = dataRaw.substring(0, 16).replaceAll('T', ' ');
                                     }
                                   } catch (_) {}

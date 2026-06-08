@@ -393,6 +393,10 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
           '${selectedDateTime.day.toString().padLeft(2, '0')}/${selectedDateTime.month.toString().padLeft(2, '0')}/${selectedDateTime.year} ${selectedDateTime.hour.toString().padLeft(2, '0')}:${selectedDateTime.minute.toString().padLeft(2, '0')}',
     );
     final cpfController = TextEditingController();
+    bool cadastrarNovoPaciente = false;
+    final novoPacienteNomeController = TextEditingController();
+    final novoPacienteDataNascController = TextEditingController();
+    final novoPacienteTelefoneController = TextEditingController();
     final motivoController = TextEditingController(text: 'Consulta Geral');
     final valorController = TextEditingController(
       text: initialProcedimento['valor']?.toString() ?? '0.00',
@@ -448,6 +452,7 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
             checkedPatientName = 'Paciente: ${data['nome']}';
             cpfVerificationError = null;
             checkingCpf = false;
+            cadastrarNovoPaciente = false;
           });
         } else {
           setDialogState(() {
@@ -647,6 +652,7 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                                   selectedPacienteId = null;
                                   checkedPatientName = null;
                                   cpfVerificationError = 'Digite os 11 dígitos';
+                                  cadastrarNovoPaciente = false;
                                 });
                               }
                             },
@@ -654,7 +660,7 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                               if (val == null || val.trim().isEmpty) {
                                 return 'Informe o CPF do paciente';
                               }
-                              if (selectedPacienteId == null) {
+                              if (selectedPacienteId == null && !cadastrarNovoPaciente) {
                                 return cpfVerificationError ??
                                     'CPF do paciente não verificado';
                               }
@@ -668,9 +674,95 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                               style: const TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.w500,
-                                fontSize: 13,
                               ),
                             ),
+                          ],
+                          if (selectedPacienteId == null &&
+                              cpfController.text.replaceAll(RegExp(r'\D'), '').length == 11 &&
+                              !checkingCpf) ...[
+                            const SizedBox(height: 10),
+                            CheckboxListTile(
+                              title: const Text(
+                                'Cadastrar novo paciente com este CPF',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              value: cadastrarNovoPaciente,
+                              activeColor: const Color(0xFF00B4D8),
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  cadastrarNovoPaciente = val ?? false;
+                                  if (!cadastrarNovoPaciente) {
+                                    localError = null;
+                                  }
+                                });
+                              },
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            if (cadastrarNovoPaciente) ...[
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                controller: novoPacienteNomeController,
+                                decoration: _dialogInputDecoration(
+                                  'Nome Completo',
+                                  Icons.person_outline,
+                                  hintText: 'Nome do paciente',
+                                ),
+                                validator: (val) {
+                                  if (cadastrarNovoPaciente && (val == null || val.trim().isEmpty)) {
+                                    return 'Informe o nome do paciente';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                controller: novoPacienteDataNascController,
+                                readOnly: true,
+                                decoration: _dialogInputDecoration(
+                                  'Data de Nascimento',
+                                  Icons.cake_outlined,
+                                  hintText: 'dd/mm/aaaa',
+                                ),
+                                onTap: () async {
+                                  final now = DateTime.now();
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: now.subtract(const Duration(days: 3650)),
+                                    firstDate: DateTime(1900),
+                                    lastDate: now,
+                                  );
+                                  if (date != null) {
+                                    setDialogState(() {
+                                      novoPacienteDataNascController.text =
+                                          '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+                                    });
+                                  }
+                                },
+                                validator: (val) {
+                                  if (cadastrarNovoPaciente && (val == null || val.trim().isEmpty)) {
+                                    return 'Informe a data de nascimento';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                controller: novoPacienteTelefoneController,
+                                keyboardType: TextInputType.phone,
+                                decoration: _dialogInputDecoration(
+                                  'Telefone',
+                                  Icons.phone_outlined,
+                                  hintText: '(00) 00000-0000',
+                                ),
+                                validator: (val) {
+                                  if (cadastrarNovoPaciente && (val == null || val.trim().isEmpty)) {
+                                    return 'Informe o telefone';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
                           ],
                           const SizedBox(height: 16),
 
@@ -911,6 +1003,59 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                                             localError = null;
                                           });
 
+                                          int? pacienteIdToUse = selectedPacienteId;
+
+                                          if (cadastrarNovoPaciente) {
+                                            try {
+                                              final headers = await _getAuthHeaders();
+                                              final birthText = novoPacienteDataNascController.text.trim();
+                                              final birthParts = birthText.split('/');
+                                              if (birthParts.length != 3) {
+                                                setDialogState(() {
+                                                  localError = 'Informe uma data de nascimento válida (dd/mm/aaaa).';
+                                                  submetendo = false;
+                                                });
+                                                return;
+                                              }
+                                              final payload = {
+                                                'nome': novoPacienteNomeController.text.trim(),
+                                                'data_nascimento': '${birthParts[2]}-${birthParts[1].padLeft(2, '0')}-${birthParts[0].padLeft(2, '0')}',
+                                                'cpf': cpfController.text.trim().replaceAll(RegExp(r'\D'), ''),
+                                                'telefone': novoPacienteTelefoneController.text.trim(),
+                                              };
+
+                                              final regResponse = await http.post(
+                                                Uri.parse('${BackendService.baseUrl}/pacientes'),
+                                                headers: headers,
+                                                body: jsonEncode(payload),
+                                              );
+
+                                              if (regResponse.statusCode == 200 || regResponse.statusCode == 201) {
+                                                final decodedReg = jsonDecode(regResponse.body);
+                                                final regData = decodedReg is Map && decodedReg['data'] != null
+                                                    ? decodedReg['data']
+                                                    : decodedReg;
+                                                if (regData is Map) {
+                                                  pacienteIdToUse = regData['id'] as int?;
+                                                }
+                                              } else {
+                                                final decodedReg = jsonDecode(regResponse.body);
+                                                final errorMsg = decodedReg is Map ? (decodedReg['error'] ?? decodedReg['message'])?.toString() : null;
+                                                setDialogState(() {
+                                                  localError = 'Erro ao cadastrar novo paciente: ${errorMsg ?? regResponse.statusCode}';
+                                                  submetendo = false;
+                                                });
+                                                return;
+                                              }
+                                            } catch (e) {
+                                              setDialogState(() {
+                                                localError = 'Erro ao cadastrar novo paciente: $e';
+                                                submetendo = false;
+                                              });
+                                              return;
+                                            }
+                                          }
+
                                           final currentUserId =
                                               await _getCurrentUserId();
                                           if (currentUserId == null) {
@@ -926,7 +1071,7 @@ class _ConsultasScreenState extends State<ConsultasScreen> {
                                               '${selectedDateTime.year}-${selectedDateTime.month.toString().padLeft(2, '0')}-${selectedDateTime.day.toString().padLeft(2, '0')} ${selectedDateTime.hour.toString().padLeft(2, '0')}:${selectedDateTime.minute.toString().padLeft(2, '0')}:00';
 
                                           final body = {
-                                            'id_paciente': selectedPacienteId,
+                                            'id_paciente': pacienteIdToUse,
                                             'id_odontologo':
                                                 selectedOdontologoId,
                                             'id_usuario_responsavel':

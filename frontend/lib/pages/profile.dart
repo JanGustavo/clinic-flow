@@ -284,7 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 110,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: colorPrimary.withOpacity(0.18),
+                        color: colorPrimary.withValues(alpha: 0.18),
                       ),
                       child: ClipOval(
                         child: Image.network(
@@ -392,6 +392,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                     colorPrimary: colorPrimary,
                   ),
+                  const SizedBox(height: 24),
+                  _deleteAccountButton(),
                   const SizedBox(height: 24),
                   Center(
                     child: TextButton.icon(
@@ -633,6 +635,116 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _dialogExcluirConta() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tem certeza que deseja excluir sua conta?'),
+        content: const Text('Essa ação é irreversível. Todos os seus dados serão perdidos.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                if (_sessionToken == null || _sessionToken!.isEmpty) {
+                  _sessionToken = await BackendService.readToken();
+                }
+                final userId = _profileData?['id'];
+                if (userId == null) {
+                  _mostrarMensagem('Erro: ID do usuário não encontrado.', false);
+                  Navigator.of(context).pop();
+                  return;
+                }
+                final uri = Uri.parse('${BackendService.baseUrl}/usuarios/$userId');
+                final headers = await BackendService.authHeaders(_sessionToken);
+                final response = await http.delete(uri, headers: headers);
+                
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+
+                if (response.statusCode == 200 || response.statusCode == 204) {
+                  _mostrarMensagem('Sua conta foi excluída com sucesso.', true);
+                  _logout();
+                } else {
+                  final decoded = jsonDecode(response.body);
+                  final errorMsg = decoded is Map
+                      ? (decoded['error'] ?? decoded['message'])?.toString()
+                      : null;
+                  _mostrarMensagem(
+                    errorMsg ?? 'Erro ao excluir conta (${response.statusCode}).',
+                    false,
+                  );
+                }
+              } catch (e) {
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+                _mostrarMensagem('Erro de conexão: $e', false);
+              }
+            },
+            style: ElevatedButton.styleFrom(  
+              backgroundColor: const Color(0xFFF50057),
+            ),
+            child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+          ),
+        ],  
+      ),
+    );
+  }
+
+
+  Widget _deleteAccountButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.grey[300]!,
+          width: 2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.delete_forever, color: Color(0xFFF50057)),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Exclusão de conta',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6C757D),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Excluir minha conta permanentemente',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFF50057),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFF50057)),
+              onPressed: _dialogExcluirConta,
+              tooltip: 'Excluir minha conta',
+            ),
           ],
         ),
       ),

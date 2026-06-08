@@ -241,22 +241,14 @@ class _HomePageState extends State<HomePage> {
                 Navigator.of(context).pushNamed('/procedimentos');
               },
             ),
-            if (!hasRole('PACIENTE'))
-              _buildDrawerItem(
-                icon: Icons.person_outline,
-                label: 'Pacientes',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pushNamed('/pacientes');
-                },
-              ),
+
             if (hasRole('ADMIN'))
               _buildDrawerItem(
-                icon: Icons.medical_services_outlined,
-                label: 'Odontólogos',
+                icon: Icons.admin_panel_settings,
+                label: 'Paínel ADMIN',
                 onTap: () {
                   Navigator.of(context).pop();
-                  Navigator.of(context).pushNamed('/odontologos');
+                  Navigator.of(context).pushNamed('/admin');
                 },
               ),
             const Divider(),
@@ -557,27 +549,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    if (!hasRole('PACIENTE')) {
-      actions.add(
-        _buildFeatureCard(
-          title: 'Pacientes',
-          subtitle: 'Gerencie o cadastro de pacientes',
-          icon: Icons.person_outline,
-          onTap: () => Navigator.of(context).pushNamed('/pacientes'),
-        ),
-      );
-    }
-
-    if (hasRole('ADMIN')) {
-      actions.add(
-        _buildFeatureCard(
-          title: 'Odontólogos',
-          subtitle: 'Gerencie o cadastro de odontólogos',
-          icon: Icons.medical_services,
-          onTap: () => Navigator.of(context).pushNamed('/odontologos'),
-        ),
-      );
-    }
 
     if (hasRole('RECEPCIONISTA')) {
       actions.add(

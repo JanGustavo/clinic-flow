@@ -11,7 +11,7 @@ class TestSwagger(unittest.TestCase):
         response = self.app.get('/docs')
         self.assertEqual(response.status_code, 200)
         html_content = response.get_data(as_text=True)
-        self.assertIn("<!DOCTYPE html>", html_content)
+        self.assertIn("<!doctype html>", html_content.lower())
         self.assertIn("Clinic Flow - Documentação da API", html_content)
         self.assertIn("swagger-ui", html_content)
 

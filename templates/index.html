@@ -206,7 +206,7 @@
                         <td>${c.id}</td>
                         <td>${c.paciente}</td>
                         <td>${c.odontologo}</td>
-                        <td>${new Date(c.data_hora).toLocaleString()}</td>
+                        <td>${new Date(c.data_hora).toLocaleString('pt-BR')}</td>
                         <td>
                             <button onclick="solicitarProcedimento(${c.id})">Solicitar Procedimento</button>
                         </td>

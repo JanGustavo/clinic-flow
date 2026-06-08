@@ -232,10 +232,21 @@ def update_usuario(id):
     db = get_db_connection()
     try: 
         with db.cursor() as cursor:
-            # 1. Verificar existência
-            cursor.execute("SELECT id FROM USUARIO WHERE id = %s", (id,))
-            if not cursor.fetchone():
+            # 1. Verificar existência e obter tipo atual
+            cursor.execute("SELECT id, tipo FROM USUARIO WHERE id = %s", (id,))
+            usuario_existente = cursor.fetchone()
+            if not usuario_existente:
                 return jsonify({"error": "Usuário não encontrado!"}), 404
+
+            # Autenticação e Autorização
+            if not g.get('user_id'):
+                return jsonify({"error": "Autenticação requerida!"}), 401
+            
+            logged_in_user_id = g.user_id
+            logged_in_user_role = g.usuario_logado.get('tipo', 'PACIENTE').upper()
+            
+            if logged_in_user_role != 'ADMIN' and logged_in_user_id != id:
+                return jsonify({"error": "Não autorizado!"}), 403
 
             dados_usuario = request.get_json()
             if not dados_usuario:
@@ -246,6 +257,10 @@ def update_usuario(id):
             tipo = dados_usuario.get('tipo')   
             senha = dados_usuario.get('senha')
             senha_repeat = dados_usuario.get('senha_repeat')
+            
+            # Impedir alteração de tipo (role) por não-admins
+            if logged_in_user_role != 'ADMIN' or tipo is None:
+                tipo = usuario_existente['tipo']
             
             # 2. Validações básicas (nome, email, tipo)
             if verificar_nome(nome) is not True:
