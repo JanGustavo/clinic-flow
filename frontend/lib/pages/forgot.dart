@@ -51,6 +51,11 @@ class _ForgotScreenState extends State<ForgotScreen> {
             body?['message']?.toString() ??
             'Código enviado para o e-mail informado.';
         _mostrarSucesso(mensagem);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/recover');
+          }
+        });
       } else {
         final mensagem =
             body?['error']?.toString() ??

@@ -7,9 +7,22 @@ class BackendService {
   BackendService._();
 
   static const String _logTag = '[BackendService]';
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
   static String _debugBaseUrl = '';
 
   static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) {
+      _debugBaseUrl = _configuredBaseUrl;
+      developer.log(
+        '$_logTag Using configured URL: $_debugBaseUrl',
+        name: 'BackendService',
+      );
+      return _debugBaseUrl;
+    }
+
     if (kIsWeb) {
       _debugBaseUrl = 'http://127.0.0.1:5000';
       developer.log(
@@ -91,7 +104,7 @@ class BackendService {
   static Future<String> testConnection() async {
     try {
       developer.log(
-        '$_logTag Testing connection to: ${baseUrl}',
+        '$_logTag Testing connection to: $baseUrl',
         name: 'BackendService',
       );
       // Teste silencioso - não loga o resultado
