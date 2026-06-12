@@ -305,11 +305,13 @@ def create_paciente():
                 estado
             ))
 
+            paciente_id = cursor.lastrowid
+
             db.commit()
 
             return jsonify({
-                "message":
-                "Paciente criado com sucesso!"
+                "message": "Paciente criado com sucesso!",
+                "id": paciente_id
             }), 201
 
     finally:
@@ -328,12 +330,14 @@ def update_paciente(id):
         with db.cursor() as cursor:
 
             cursor.execute("""
-                SELECT id
+                SELECT id, nome, data_nascimento, cpf, telefone, cep, logradouro, numero_casa, bairro, cidade, estado
                 FROM PACIENTE
                 WHERE id = %s
             """, (id,))
 
-            if not cursor.fetchone():
+            paciente_atual = cursor.fetchone()
+
+            if not paciente_atual:
                 return jsonify({
                     "error":
                     "Paciente não encontrado!"
@@ -347,24 +351,16 @@ def update_paciente(id):
                     "Dados do paciente ausentes!"
                 }), 400
 
-            nome = dados.get('nome')
-            data_nascimento = dados.get(
-                'data_nascimento'
-            )
-            cpf = dados.get('cpf')
-            telefone = dados.get(
-                'telefone'
-            )
-            cep = dados.get('cep')
-            logradouro = dados.get(
-                'logradouro'
-            )
-            numero_casa = dados.get(
-                'numero_casa'
-            )
-            bairro = dados.get('bairro')
-            cidade = dados.get('cidade')
-            estado = dados.get('estado')
+            nome = dados.get('nome') if 'nome' in dados else paciente_atual['nome']
+            data_nascimento = dados.get('data_nascimento') if 'data_nascimento' in dados else paciente_atual['data_nascimento']
+            cpf = dados.get('cpf') if 'cpf' in dados else paciente_atual['cpf']
+            telefone = dados.get('telefone') if 'telefone' in dados else paciente_atual['telefone']
+            cep = dados.get('cep') if 'cep' in dados else paciente_atual['cep']
+            logradouro = dados.get('logradouro') if 'logradouro' in dados else paciente_atual['logradouro']
+            numero_casa = dados.get('numero_casa') if 'numero_casa' in dados else paciente_atual['numero_casa']
+            bairro = dados.get('bairro') if 'bairro' in dados else paciente_atual['bairro']
+            cidade = dados.get('cidade') if 'cidade' in dados else paciente_atual['cidade']
+            estado = dados.get('estado') if 'estado' in dados else paciente_atual['estado']
 
             validacao = validar_paciente(
                 nome,

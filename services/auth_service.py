@@ -17,8 +17,8 @@ def _gerar_token(payload):
     )
     return serializer.dumps(payload)
 
-def login_requerido(funcao):
-    @wraps(funcao)
+def login_requerido(funcao): #vai virar decorador para proteger rotas que precisam de autenticação
+    @wraps(funcao) 
     def wrapper(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
         g.user_id = None
@@ -52,7 +52,7 @@ def login_requerido(funcao):
         return funcao(*args, **kwargs)
     return wrapper
 
-def papeis_autorizados(*papeis):
+def papeis_autorizados(*papeis): 
     def decorator(funcao):
         @wraps(funcao)
         def wrapper(*args, **kwargs):
